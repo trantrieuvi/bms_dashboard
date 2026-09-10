@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#07111f">
+    <title id="pageTitle">Libre Solar BMS C1 · ThingSet dashboard</title>
+    <style>
+        :root {
+            --bg: #07111f;
+            --bg-deep: #050b14;
+            --card: #0d1a2c;
+            --border: #1e3551;
+            --text: #e7eef8;
+            --muted: #8da2ba;
+            --blue: #62b0ff;
+            --cyan: #61e5e0;
+            --green: #59d98e;
+            --yellow: #f2c866;
+            --red: #ff6f77;
+            --shadow: 0 16px 45px rgba(0, 0, 0, .22);
+        }
+
+        * { box-sizing: border-box; }
+        html { min-width: 320px; background: var(--bg); overflow-x: hidden; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            background: radial-gradient(circle at 80% -10%, rgba(48, 131, 214, .16), transparent 34rem), linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+            font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        button, input, textarea { font: inherit; }
+        button { border: 0; border-radius: 9px; padding: 9px 13px; color: var(--text); background: #173252; cursor: pointer; transition: background .15s ease, transform .15s ease, opacity .15s ease; }
+        button:hover:not(:disabled) { background: #214a76; transform: translateY(-1px); }
+        button:disabled { cursor: not-allowed; opacity: .45; }
+        button.primary { background: #1d6eb4; }
+        button.primary:hover:not(:disabled) { background: #278bdc; }
+        button.safe { background: #156345; }
+        button.safe:hover:not(:disabled) { background: #1c845c; }
+        button.warn { background: #7a4e25; }
+        button.danger { background: #71303a; }
+        button.ghost { background: transparent; border: 1px solid var(--border); }
+        button.small { padding: 7px 10px; font-size: 12px; }
+        .language-picker { display: inline-flex; align-items: center; gap: 6px; min-height: 37px; padding: 4px 9px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); background: rgba(13, 26, 44, .8); }
+        .language-picker select { max-width: 118px; border: 0; outline: 0; color: var(--text); background: transparent; cursor: pointer; }
+        .language-picker option { color: #07111f; background: #e7eef8; }
+
+        .app-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 25px clamp(16px, 4vw, 54px) 20px; border-bottom: 1px solid rgba(98, 176, 255, .11); background: rgba(5, 12, 23, .56); }
+        .brand { min-width: 0; }
+        .eyebrow { color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+        h1, h2, h3, p { margin: 0; }
+        h1 { margin-top: 5px; font-size: clamp(22px, 3vw, 33px); letter-spacing: -.02em; }
+        .subtitle { margin-top: 6px; max-width: 780px; color: var(--muted); }
+        .header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 540px; }
+        .connection-pill { display: inline-flex; align-items: center; gap: 7px; min-height: 37px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: rgba(13, 26, 44, .8); white-space: nowrap; }
+        .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #64748b; box-shadow: 0 0 0 4px rgba(100, 116, 139, .12); }
+        .status-dot.online { background: var(--green); box-shadow: 0 0 0 4px rgba(89, 217, 142, .13), 0 0 16px rgba(89, 217, 142, .7); }
+
+        .page { width: min(1500px, calc(100% - 32px)); margin: 0 auto; padding: 18px 0 34px; }
+        .notice, .alert, .safety-note { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+        .notice { color: #c8e5ff; background: rgba(26, 76, 122, .22); }
+        .alert { display: none; color: #ffe3b2; border-color: rgba(242, 200, 102, .42); background: rgba(122, 78, 37, .22); }
+        .alert.error { color: #ffd4d7; border-color: rgba(255, 111, 119, .45); background: rgba(113, 48, 58, .25); }
+        .alert.show { display: flex; align-items: flex-start; gap: 10px; }
+        .alert-icon { font-size: 18px; line-height: 1; }
+
+        .tabs { display: flex; gap: 6px; padding: 5px; width: max-content; max-width: 100%; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 12px; background: rgba(13, 26, 44, .85); }
+        .tab-button { min-width: 128px; color: var(--muted); background: transparent; }
+        .tab-button.active { color: var(--text); background: #1a385c; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin: 5px 0 12px; }
+        .section-heading h2 { font-size: 19px; }
+        .section-heading h3 { font-size: 15px; }
+        .section-heading p, .section-meta { color: var(--muted); font-size: 12px; }
+        .section-meta { text-align: right; }
+
+        .metric-grid { display: grid; grid-template-columns: repeat(6, minmax(145px, 1fr)); gap: 11px; margin-bottom: 15px; }
+        .metric-card, .panel, .config-group { border: 1px solid var(--border); border-radius: 13px; background: linear-gradient(145deg, rgba(16, 34, 57, .95), rgba(10, 23, 39, .97)); box-shadow: var(--shadow); }
+        .metric-card { min-height: 126px; padding: 15px; }
+        .metric-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+        .metric-value { margin-top: 8px; font-size: clamp(21px, 2.25vw, 29px); font-weight: 750; letter-spacing: -.035em; }
+        .metric-value .unit { margin-left: 4px; color: var(--muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+        .metric-value.state { font-size: 20px; color: var(--blue); }
+        .metric-sub { margin-top: 7px; min-height: 18px; color: var(--muted); font-size: 11px; }
+        .green { color: var(--green); }
+
+        .soc-panel { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(280px, 1.2fr); align-items: center; gap: 20px; padding: 18px 20px; }
+        .soc-gauge-wrap { position: relative; width: min(100%, 360px); margin: 0 auto; }
+        .soc-gauge { display: block; width: 100%; height: auto; overflow: visible; }
+        .soc-gauge-track, .soc-gauge-fill { fill: none; stroke-width: 16; stroke-linecap: round; }
+        .soc-gauge-track { stroke: #1b3550; }
+        .soc-gauge-fill { stroke: url(#socGradient); stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .45s ease, filter .25s ease; filter: drop-shadow(0 0 7px rgba(89, 217, 142, .28)); }
+        .soc-gauge-fill.low { stroke: var(--red); filter: drop-shadow(0 0 7px rgba(255, 111, 119, .3)); }
+        .soc-gauge-fill.mid { stroke: var(--yellow); filter: drop-shadow(0 0 7px rgba(242, 200, 102, .28)); }
+        .soc-gauge-center { position: absolute; right: 0; bottom: 5px; left: 0; display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+        .soc-gauge-value { font-size: clamp(34px, 5vw, 54px); font-weight: 800; letter-spacing: -.06em; }
+        .soc-gauge-unit { color: var(--muted); font-size: 14px; }
+        .soc-copy h3 { margin-top: 4px; font-size: 22px; }
+        .soc-copy p { margin-top: 8px; color: var(--muted); }
+        .soc-scale { display: flex; justify-content: space-between; gap: 8px; margin-top: 20px; color: var(--muted); font-size: 11px; }
+        .soc-scale span:nth-child(2) { color: var(--cyan); font-weight: 700; }
+        .soc-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(30, 53, 81, .62); color: var(--muted); font-size: 12px; }
+        .soc-meta strong { color: var(--text); }
+
+        .panel { padding: 16px; margin-bottom: 15px; }
+        .cells-panel { padding-bottom: 17px; }
+        .cells-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 13px; }
+        .cells-header h3 { font-size: 16px; }
+        .cells-caption { color: var(--muted); font-size: 12px; text-align: right; }
+        .cells-grid { display: grid; grid-template-columns: repeat(8, minmax(92px, 1fr)); gap: 8px; }
+        .cell-card { min-height: 128px; padding: 10px; border: 1px solid #24415f; border-radius: 10px; background: rgba(5, 14, 26, .58); }
+        .cell-card.low { border-color: rgba(242, 200, 102, .65); }
+        .cell-card.high, .cell-card.invalid { border-color: rgba(255, 111, 119, .75); background: rgba(113, 48, 58, .18); }
+        .cell-card.balancing { box-shadow: inset 0 0 0 1px rgba(97, 229, 224, .65); }
+        .cell-top { display: flex; justify-content: space-between; gap: 4px; font-size: 12px; font-weight: 800; }
+        .cell-value { color: var(--cyan); }
+        .cell-card.invalid .cell-value, .cell-card.high .cell-value { color: var(--red); }
+        .cell-card.low .cell-value { color: var(--yellow); }
+        .cell-track { position: relative; height: 62px; margin: 9px 1px 7px; overflow: hidden; border: 1px solid #1c344d; border-radius: 6px; background: linear-gradient(180deg, rgba(89, 217, 142, .16), rgba(89, 217, 142, .02)); }
+        .cell-fill { position: absolute; right: 0; bottom: 0; left: 0; min-height: 2px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--cyan), #2285ae); }
+        .cell-card.low .cell-fill { background: linear-gradient(180deg, var(--yellow), #bc7b26); }
+        .cell-card.high .cell-fill, .cell-card.invalid .cell-fill { background: var(--red); }
+        .cell-card.invalid .cell-track { background: repeating-linear-gradient(135deg, rgba(255, 111, 119, .12), rgba(255, 111, 119, .12) 5px, transparent 5px, transparent 10px); }
+        .cell-footer { min-height: 16px; color: var(--muted); font-size: 10px; }
+
+        .two-column { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(310px, .8fr); gap: 15px; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table tr + tr { border-top: 1px solid rgba(30, 53, 81, .58); }
+        .data-table th, .data-table td { padding: 9px 0; text-align: left; vertical-align: top; }
+        .data-table th { width: 46%; color: var(--muted); font-size: 12px; font-weight: 550; }
+        .data-table td { color: var(--text); font-size: 13px; }
+        .error-list { display: grid; gap: 7px; margin-top: 10px; }
+        .error-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 8px; color: #ffd4d7; background: rgba(113, 48, 58, .28); font-size: 12px; }
+        .ok-item { color: #c3f4d4; background: rgba(21, 99, 69, .24); }
+        .hardware-log { margin-top: 10px; color: var(--yellow); font-size: 12px; }
+
+        .config-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 15px; }
+        .config-status { flex: 1 1 260px; min-height: 36px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); background: rgba(5, 14, 26, .46); }
+        .config-status.good { color: #c3f4d4; border-color: rgba(89, 217, 142, .4); }
+        .config-status.bad { color: #ffd4d7; border-color: rgba(255, 111, 119, .4); }
+        .safety-note { color: #ffe8bb; border-color: rgba(242, 200, 102, .4); background: rgba(122, 78, 37, .18); }
+        .safety-note strong { color: #ffd378; }
+        .config-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+        .config-group { padding: 15px; }
+        .config-group.wide { grid-column: 1 / -1; }
+        .config-group h3 { margin-bottom: 4px; font-size: 15px; }
+        .group-help { margin-bottom: 12px; color: var(--muted); font-size: 12px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 13px; }
+        .form-field { min-width: 0; }
+        .form-field label { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px; color: #c9d7e8; font-size: 12px; }
+        .form-field label code { color: #7196bb; font-size: 10px; }
+        .input-wrap { display: flex; align-items: center; gap: 7px; }
+        input[type="number"], input[type="text"], textarea { width: 100%; border: 1px solid #274563; border-radius: 8px; outline: 0; padding: 8px 9px; color: var(--text); background: #081525; }
+        textarea { min-height: 72px; resize: vertical; line-height: 1.5; }
+        input:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(98, 176, 255, .1); }
+        input.dirty, textarea.dirty { border-color: var(--yellow); }
+        .input-unit { min-width: 38px; color: var(--muted); font-size: 11px; text-align: right; }
+        .field-help { margin-top: 4px; color: #7188a2; font-size: 10px; }
+        .control-box { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+        .check-row { display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; color: #d8e5f5; background: rgba(5, 14, 26, .4); }
+        input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--cyan); }
+        .preset-box { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+        .preset-capacity { width: 150px; color: #c9d7e8; font-size: 12px; }
+        .preset-capacity input { margin-top: 5px; }
+        .preset-warning { flex: 1 1 300px; color: var(--muted); font-size: 12px; }
+        .config-footnote { margin-top: 10px; color: var(--muted); font-size: 11px; }
+
+        .terminal-panel { margin-top: 15px; }
+        .terminal-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .terminal-title { color: #cbd8e8; font-size: 13px; font-weight: 700; }
+        .terminal-log { height: 220px; overflow: auto; padding: 11px; border: 1px solid #1c344d; border-radius: 8px; color: #a9c7e6; background: #030912; font: 12px/1.55 "Cascadia Code", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+        .terminal-line { display: block; }
+        .terminal-line.send { color: #8bd9b0; }
+        .terminal-line.error { color: #ff9da3; }
+        .terminal-form { display: flex; gap: 8px; margin-top: 8px; }
+        .terminal-form input { flex: 1; font-family: "Cascadia Code", Consolas, monospace; }
+        .footer { color: #5f7691; font-size: 11px; text-align: center; }
+
+        @media (max-width: 1180px) { .metric-grid { grid-template-columns: repeat(3, minmax(150px, 1fr)); } .cells-grid { grid-template-columns: repeat(4, minmax(92px, 1fr)); } }
+        @media (max-width: 760px) {
+            .app-header { flex-direction: column; padding: 20px 16px; }
+            .header-actions { width: 100%; justify-content: flex-start; }
+            .header-actions > button, .header-actions > .connection-pill, .header-actions > .language-picker { flex: 1 1 auto; }
+            .page { width: calc(100% - 20px); }
+            .metric-grid, .config-grid, .two-column { grid-template-columns: 1fr; }
+            .config-group.wide { grid-column: auto; }
+            .form-grid, .control-box { grid-template-columns: 1fr; }
+            .cells-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
+            .cells-header, .section-heading { align-items: flex-start; flex-direction: column; }
+            .cells-caption, .section-meta { text-align: left; }
+            .soc-panel { grid-template-columns: 1fr; gap: 4px; padding: 14px; }
+            .soc-gauge-wrap { width: min(100%, 330px); }
+            .soc-copy { padding: 0 4px 4px; }
+            .terminal-form { flex-wrap: wrap; }
+            .terminal-form button { width: 100%; }
+        }
+        @media (max-width: 420px) {
+            .page { width: calc(100% - 14px); padding-top: 12px; }
+            .app-header { padding: 16px 10px; }
+            .header-actions { gap: 6px; }
+            .header-actions > button, .header-actions > .connection-pill, .header-actions > .language-picker { min-width: 0; padding-right: 8px; padding-left: 8px; font-size: 12px; }
+            .connection-pill { white-space: normal; }
+            .tabs { width: 100%; }
+            .tab-button { min-width: 0; flex: 1 1 0; padding-right: 8px; padding-left: 8px; }
+            .metric-card { min-height: 110px; padding: 12px; }
+            .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .metric-label { font-size: 10px; }
+            .metric-value { font-size: 22px; }
+            .metric-value.state { font-size: 16px; }
+            .metric-sub { font-size: 10px; }
+            .panel, .config-group { padding: 12px; }
+            .cells-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+            .cell-card { min-height: 116px; padding: 8px; }
+            .data-table th { width: 43%; }
+        }
+        @media (max-width: 350px) { .metric-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="brand">
+            <div class="eyebrow">Libre Solar · ThingSet</div>
+            <h1>BMS C1 <span id="headerDevice">ESP32-C3 / v0.4</span></h1>
+            <p class="subtitle" data-i18n="subtitle">Giám sát và cấu hình trực tiếp qua USB Serial hoặc Bluetooth Low Energy. Dữ liệu hiển thị lấy từ các ThingSet object thật của firmware, không dùng giá trị mô phỏng.</p>
+        </div>
+        <div class="header-actions">
+            <label class="language-picker" for="languageSelect"><span aria-hidden="true">🌐</span><select id="languageSelect" data-i18n-aria="languageLabel" aria-label="Ngôn ngữ" onchange="changeLanguage(this.value)"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></label>
+            <div class="connection-pill"><span id="statusDot" class="status-dot"></span><span id="statusText">Chưa kết nối</span></div>
+            <button id="btnConnectUSB" class="primary" type="button" onclick="connectUSB()" data-i18n="connectUsb">🔌 Kết nối COM</button>
+            <button id="btnConnectBLE" type="button" onclick="connectBLE()" data-i18n="connectBle">📡 BLE</button>
+            <button id="btnDisconnect" class="danger" type="button" onclick="disconnectDevice()" data-i18n="disconnect" hidden>Ngắt kết nối</button>
+        </div>
+    </header>
+
+    <main class="page">
+        <div id="secureNotice" class="notice" data-i18n-html="secureNotice" hidden>Web Serial chỉ hoạt động trong ngữ cảnh bảo mật. Hãy mở trang qua <code>http://localhost:8000/dashboard.html</code> (không mở trực tiếp bằng <code>file://</code>).</div>
+        <div id="alertBanner" class="alert"><div id="alertIcon" class="alert-icon">⚠</div><div id="alertText"></div></div>
+
+        <nav class="tabs" data-i18n-aria="tabsLabel" aria-label="Các tab dashboard">
+            <button class="tab-button active" data-tab="overview" type="button" onclick="switchTab('overview')" data-i18n="tabOverview">📊 Overview</button>
+            <button class="tab-button" data-tab="config" type="button" onclick="switchTab('config')" data-i18n="tabConfig">⚙️ Config</button>
+        </nav>
+
+        <section id="tab-overview" class="tab-panel active">
+            <div class="section-heading"><div><h2 data-i18n="overviewTitle">Overview · Trạng thái BMS</h2><p data-i18n-html="overviewDescription">Polling nhóm <code>Meas</code> mỗi 2 giây khi đã kết nối.</p></div><div class="section-meta"><div id="lastUpdate" data-i18n="noSample">Chưa có mẫu dữ liệu</div><div id="pollState">Đang chờ kết nối</div></div></div>
+            <section class="panel soc-panel">
+                <div class="soc-gauge-wrap">
+                    <svg class="soc-gauge" viewBox="0 0 220 132" role="img" aria-labelledby="socGaugeTitle socGaugeState">
+                        <defs><linearGradient id="socGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ff6f77"></stop><stop offset="24%" stop-color="#f2c866"></stop><stop offset="52%" stop-color="#59d98e"></stop><stop offset="100%" stop-color="#61e5e0"></stop></linearGradient></defs>
+                        <path class="soc-gauge-track" d="M 25 105 A 85 85 0 0 1 195 105"></path>
+                        <path id="socGaugeFill" class="soc-gauge-fill" pathLength="100" d="M 25 105 A 85 85 0 0 1 195 105"></path>
+                    </svg>
+                    <div class="soc-gauge-center"><span id="socGaugeValue" class="soc-gauge-value">—</span><span class="soc-gauge-unit">%</span></div>
+                </div>
+                <div class="soc-copy"><div class="eyebrow" data-i18n="socEyebrow">LIVE BATTERY VIEW</div><h3 id="socGaugeTitle" data-i18n="socTitle">State of charge</h3><p id="socGaugeState">Chưa có mẫu SOC</p><div class="soc-scale"><span>0%</span><span data-i18n="socScale">SOC</span><span>100%</span></div><div class="soc-meta"><span data-i18n="nominalCapacity">Dung lượng danh định</span><strong id="socGaugeCapacity">—</strong></div></div>
+            </section>
+            <div class="metric-grid">
+                <article class="metric-card"><div class="metric-label" data-i18n="metricPackVoltage">Điện áp pack</div><div class="metric-value"><span id="valPackVoltage">—</span><span class="unit">V</span></div><div id="subPackVoltage" class="metric-sub">Chưa đọc</div></article>
+                <article class="metric-card"><div class="metric-label" data-i18n="metricPackCurrent">Dòng pack</div><div class="metric-value"><span id="valPackCurrent">—</span><span class="unit">A</span></div><div id="valPower" class="metric-sub">Công suất: —</div></article>
+                <article class="metric-card"><div class="metric-label" data-i18n="metricSoc">SOC</div><div class="metric-value green"><span id="valSOC">—</span><span class="unit">%</span></div><div id="valCapacity" class="metric-sub">Dung lượng định mức: —</div></article>
+                <article class="metric-card"><div class="metric-label" data-i18n="metricCellDelta">Độ lệch cell</div><div class="metric-value"><span id="valCellDelta">—</span><span class="unit">mV</span></div><div id="valMinMax" class="metric-sub">Min / max: —</div></article>
+                <article class="metric-card"><div class="metric-label" data-i18n="metricTemperature">Nhiệt độ</div><div class="metric-value"><span id="valTemps">—</span><span class="unit">°C</span></div><div id="valThermalDetail" class="metric-sub">MOSFET / IC: —</div></article>
+                <article class="metric-card"><div class="metric-label" data-i18n="metricStateErrors">State / errors</div><div id="valBmsState" class="metric-value state">—</div><div id="valErrorFlags" class="metric-sub">Chưa đọc</div></article>
+            </div>
+
+            <section class="panel cells-panel">
+                <div class="cells-header"><div><h3 data-i18n="cellsTitle">Điện áp cell · LiFePO4</h3><p class="section-meta" style="text-align:left" data-i18n="cellsDescription">Giá trị âm hoặc ngoài 0–5 V được đánh dấu là lỗi đọc, không đưa vào min/max.</p></div><div id="cellsCaption" class="cells-caption">Chưa có dữ liệu cell</div></div>
+                <div id="cellsGrid" class="cells-grid"></div>
+            </section>
+
+            <div class="two-column">
+                <section class="panel"><div class="section-heading"><div><h3 data-i18n="measurementDetails">Chi tiết đo</h3><p data-i18n-html="measurementDescription">Giá trị phản hồi từ <code>?Meas</code>.</p></div></div><table class="data-table"><tbody>
+                    <tr><th data-i18n="detailVoltageLabel">Pack / stack voltage</th><td id="detailVoltage">—</td></tr>
+                    <tr><th data-i18n="detailCurrentLabel">Pack current</th><td id="detailCurrent">—</td></tr>
+                    <tr><th data-i18n="detailCellStatsLabel">Cell avg / min / max</th><td id="detailCellStats">—</td></tr>
+                    <tr><th data-i18n="detailCellTempsLabel">Cell temperatures</th><td id="detailCellTemps">—</td></tr>
+                    <tr><th data-i18n="detailIcTempsLabel">IC / MOSFET / shunt</th><td id="detailIcTemps">—</td></tr>
+                    <tr><th data-i18n="detailBalancingLabel">Balancing status</th><td id="detailBalancing">—</td></tr>
+                    <tr><th data-i18n="detailInputsLabel">Inputs</th><td id="detailInputs">Chưa đọc</td></tr>
+                </tbody></table></section>
+                <section class="panel"><div class="section-heading"><div><h3 data-i18n="diagnosticsTitle">Chẩn đoán</h3><p data-i18n="diagnosticsDescription">Giải mã theo enum/error bit của firmware.</p></div></div><div id="errorList" class="error-list"><div class="error-item ok-item" data-i18n="diagnosticsWaiting">Chưa có mẫu dữ liệu để đánh giá.</div></div><div id="hardwareLog" class="hardware-log" hidden></div></section>
+            </div>
+        </section>
+
+        <section id="tab-config" class="tab-panel">
+            <div class="section-heading"><div><h2 data-i18n="configTitle">Config · Cấu hình BMS</h2><p data-i18n-html="configDescription">Đọc/ghi các object <code>Conf</code>, <code>Input</code> và reporting của firmware.</p></div></div>
+            <div class="safety-note" data-i18n-html="safetyNote"><strong>⚠ An toàn LFP:</strong> dashboard chỉ cho phép ngưỡng điện áp trong dải bảo vệ LFP và kiểm tra quan hệ reset/limit. Không tự động gọi preset hay thay đổi MOSFET. Mọi ghi xuống board đều cần xác nhận; giới hạn ở đây là lớp bảo vệ phía trình duyệt, không thay thế kiểm tra phần cứng.</div>
+            <div class="config-toolbar"><button id="btnRefreshConfig" class="primary" type="button" onclick="refreshConfiguration()" data-i18n="refreshConfig">↻ Đọc lại cấu hình</button><button id="btnApplyConfig" class="safe" type="button" onclick="applyConfigChanges()" disabled data-i18n="applyConfig">✓ Ghi thay đổi Conf</button><div id="configStatus" class="config-status">Chưa đọc cấu hình. Kết nối board rồi bấm “Đọc lại cấu hình”.</div></div>
+            <div class="config-grid">
+                <div class="config-group"><h3 data-i18n="configGeneralTitle">Pin & dung lượng</h3><p class="group-help" data-i18n="configGeneralHelp">Thông số chung của pack. Dung lượng không làm thay đổi trực tiếp điện áp cell.</p><div id="config-general" class="form-grid"></div></div>
+                <div class="config-group"><h3 data-i18n="configVoltageTitle">Điện áp cell · LFP</h3><p class="group-help" data-i18n="configVoltageHelp">Khuyến nghị sạc LFP quanh 3.45–3.65 V/cell; không đặt OVP/reset chồng lấn.</p><div id="config-voltage" class="form-grid"></div></div>
+                <div class="config-group"><h3 data-i18n="configCurrentTitle">Giới hạn dòng</h3><p class="group-help" data-i18n="configCurrentHelp">Giữ trong khả năng cell, dây dẫn, shunt và tải thực tế của bộ test.</p><div id="config-current" class="form-grid"></div></div>
+                <div class="config-group"><h3 data-i18n="configTemperatureTitle">Giới hạn nhiệt</h3><p class="group-help" data-i18n="configTemperatureHelp">Giới hạn bảo vệ khi nạp/xả; nhiệt độ được lấy từ NTC của BMS IC.</p><div id="config-temperature" class="form-grid"></div></div>
+                <div class="config-group"><h3 data-i18n="configBalancingTitle">Cân bằng cell</h3><p class="group-help" data-i18n="configBalancingHelp">Chỉ cân bằng khi điện áp đủ cao và pack ở trạng thái idle.</p><div id="config-balancing" class="form-grid"></div></div>
+                <div class="config-group"><h3 data-i18n="configReportingTitle">ThingSet live reporting</h3><p class="group-help" data-i18n="configReportingHelp">Board hiện tắt báo cáo tự động qua shell; dashboard tự polling nhóm Meas.</p><div id="config-reporting" class="form-grid"></div></div>
+                <div class="config-group wide"><h3 data-i18n="configCurvesTitle">Đường cong OCV / SOC · nâng cao</h3><p class="group-help" data-i18n="configCurvesHelp">Firmware LFP đang dùng 21 điểm. Không đổi nếu chưa có đường cong đo đúng cho cell/pack.</p><div id="config-curves" class="form-grid"></div><p class="config-footnote" data-i18n="configCurvesFootnote">Kiểm tra bắt buộc: đủ 21 số, OCV nằm trong 2.5–3.65 V/cell và giảm dần; SOC nằm trong 0–100% và giảm dần.</p></div>
+                <div class="config-group wide"><h3 data-i18n="configInputTitle">Cho phép nạp / xả</h3><p class="group-help" data-i18n="configInputHelp">Đây là lệnh điều khiển có thể làm đổi trạng thái FET. Không tự động đổi khi kết nối.</p><div class="control-box"><label class="check-row"><input id="inputChgEnable" type="checkbox"> <span data-i18n-html="chargeEnable">Cho phép nạp (<code>wChgEnable</code>)</span></label><label class="check-row"><input id="inputDisEnable" type="checkbox"> <span data-i18n-html="dischargeEnable">Cho phép xả (<code>wDisEnable</code>)</span></label></div><div style="margin-top:10px"><button class="warn" type="button" onclick="applyInputControls()" data-i18n="applyInput">⚠ Ghi enable nạp/xả</button></div></div>
+                <div class="config-group wide"><h3 data-i18n="presetTitle">Preset cell chemistry</h3><p class="group-help" data-i18n="presetHelp">Preset LFP ghi nhiều tham số vào bộ nhớ NVM rồi cấu hình lại BMS IC. Chỉ dùng khi thật sự muốn khôi phục bộ thông số LFP.</p><div class="preset-box"><label class="preset-capacity"><span data-i18n="presetCapacityLabel">Dung lượng (Ah)</span><input id="presetCapacity" type="number" min="0.1" max="1000" step="0.1" value="50"></label><button class="warn" type="button" onclick="runLfpPreset()" data-i18n="runPreset">Áp preset LFP</button><div class="preset-warning" data-i18n="presetWarning">Không có nút NMC/LTO trên giao diện để tránh chọn nhầm hóa học pin. Sau khi áp preset, dashboard sẽ đọc lại toàn bộ cấu hình.</div></div></div>
+            </div>
+        </section>
+
+        <section class="panel terminal-panel"><div class="terminal-head"><div class="terminal-title" data-i18n="terminalTitle">⌘ ThingSet / Zephyr shell console</div><button class="ghost small" type="button" onclick="clearTerminal()" data-i18n="clearLog">Xóa log</button></div><div id="terminalLog" class="terminal-log"><span class="terminal-line" data-i18n="terminalReady">Sẵn sàng. Kết nối đúng COM6 trong hộp chọn của Edge để bắt đầu.</span></div><div class="terminal-form"><input id="commandInput" type="text" data-i18n-placeholder="commandPlaceholder" placeholder="Ví dụ: ?Meas · ?Conf · kernel version" onkeydown="if(event.key === 'Enter') sendCustomCommand()"><button type="button" onclick="sendCustomCommand()" data-i18n="sendCommand">Gửi</button></div></section>
+        <div class="footer" data-i18n="footer">Libre Solar BMS C1 · ESP32-C3 · ThingSet text mode · 115200 8N1</div>
+    </main>
+
+    <script>
+        'use strict';
+
+        const SERVICE_UUID = '00000001-5423-4887-9c6a-14ad27bfc06d';
+        const BLE_DOWNLINK_UUID = '00000002-5423-4887-9c6a-14ad27bfc06d';
+        const BLE_UPLINK_UUID = '00000003-5423-4887-9c6a-14ad27bfc06d';
+        const POLL_INTERVAL_MS = 2000;
+        const REQUEST_TIMEOUT_MS = 2600;
+        const BLE_WRITE_CHUNK_SIZE = 20;
+        const LFP_DISPLAY_MIN_V = 2.5;
+        const LFP_DISPLAY_MAX_V = 3.65;
+
+        const translations = {
+            vi: {
+                pageTitle: 'Libre Solar BMS C1 · ThingSet dashboard',
+                subtitle: 'Giám sát và cấu hình trực tiếp qua USB Serial hoặc Bluetooth Low Energy. Dữ liệu hiển thị lấy từ các ThingSet object thật của firmware, không dùng giá trị mô phỏng.',
+                languageLabel: 'Ngôn ngữ',
+                connectUsb: '🔌 Kết nối COM', connectBle: '📡 BLE', disconnect: 'Ngắt kết nối',
+                secureNotice: 'Web Serial chỉ hoạt động trong ngữ cảnh bảo mật. Hãy mở trang qua <code>http://localhost:8000/dashboard.html</code> (không mở trực tiếp bằng <code>file://</code>).',
+                tabsLabel: 'Các tab dashboard', tabOverview: '📊 Overview', tabConfig: '⚙️ Config',
+                overviewTitle: 'Overview · Trạng thái BMS', overviewDescription: 'Polling nhóm <code>Meas</code> mỗi 2 giây khi đã kết nối.',
+                socEyebrow: 'LIVE BATTERY VIEW', socTitle: 'State of charge', socScale: 'SOC', nominalCapacity: 'Dung lượng danh định',
+                metricPackVoltage: 'Điện áp pack', metricPackCurrent: 'Dòng pack', metricSoc: 'SOC', metricCellDelta: 'Độ lệch cell', metricTemperature: 'Nhiệt độ', metricStateErrors: 'State / errors',
+                measurementDetails: 'Chi tiết đo', measurementDescription: 'Giá trị phản hồi từ <code>?Meas</code>.', detailVoltageLabel: 'Pack / stack voltage', detailCurrentLabel: 'Pack current', detailCellStatsLabel: 'Cell avg / min / max', detailCellTempsLabel: 'Cell temperatures', detailIcTempsLabel: 'IC / MOSFET / shunt', detailBalancingLabel: 'Balancing status', detailInputsLabel: 'Inputs',
+                cellsTitle: 'Điện áp cell · LiFePO4', cellsDescription: 'Giá trị âm hoặc ngoài 0–5 V được đánh dấu là lỗi đọc, không đưa vào min/max.',
+                diagnosticsTitle: 'Chẩn đoán', diagnosticsDescription: 'Giải mã theo enum/error bit của firmware.', diagnosticsWaiting: 'Chưa có mẫu dữ liệu để đánh giá.',
+                configTitle: 'Config · Cấu hình BMS', configDescription: 'Đọc/ghi các object <code>Conf</code>, <code>Input</code> và reporting của firmware.',
+                safetyNote: '<strong>⚠ An toàn LFP:</strong> dashboard chỉ cho phép ngưỡng điện áp trong dải bảo vệ LFP và kiểm tra quan hệ reset/limit. Không tự động gọi preset hay thay đổi MOSFET. Mọi ghi xuống board đều cần xác nhận; giới hạn ở đây là lớp bảo vệ phía trình duyệt, không thay thế kiểm tra phần cứng.',
+                refreshConfig: '↻ Đọc lại cấu hình', applyConfig: '✓ Ghi thay đổi Conf',
+                configGeneralTitle: 'Pin & dung lượng', configGeneralHelp: 'Thông số chung của pack. Dung lượng không làm thay đổi trực tiếp điện áp cell.',
+                configVoltageTitle: 'Điện áp cell · LFP', configVoltageHelp: 'Khuyến nghị sạc LFP quanh 3.45–3.65 V/cell; không đặt OVP/reset chồng lấn.',
+                configCurrentTitle: 'Giới hạn dòng', configCurrentHelp: 'Giữ trong khả năng cell, dây dẫn, shunt và tải thực tế của bộ test.',
+                configTemperatureTitle: 'Giới hạn nhiệt', configTemperatureHelp: 'Giới hạn bảo vệ khi nạp/xả; nhiệt độ được lấy từ NTC của BMS IC.',
+                configBalancingTitle: 'Cân bằng cell', configBalancingHelp: 'Chỉ cân bằng khi điện áp đủ cao và pack ở trạng thái idle.',
+                configReportingTitle: 'ThingSet live reporting', configReportingHelp: 'Board hiện tắt báo cáo tự động qua shell; dashboard tự polling nhóm Meas.',
+                configCurvesTitle: 'Đường cong OCV / SOC · nâng cao', configCurvesHelp: 'Firmware LFP đang dùng 21 điểm. Không đổi nếu chưa có đường cong đo đúng cho cell/pack.', configCurvesFootnote: 'Kiểm tra bắt buộc: đủ 21 số, OCV nằm trong 2.5–3.65 V/cell và giảm dần; SOC nằm trong 0–100% và giảm dần.',
+                configInputTitle: 'Cho phép nạp / xả', configInputHelp: 'Đây là lệnh điều khiển có thể làm đổi trạng thái FET. Không tự động đổi khi kết nối.', chargeEnable: 'Cho phép nạp (<code>wChgEnable</code>)', dischargeEnable: 'Cho phép xả (<code>wDisEnable</code>)', liveReportCheckbox: 'Cho phép board tự phát live report', applyInput: '⚠ Ghi enable nạp/xả',
+                presetTitle: 'Preset cell chemistry', presetHelp: 'Preset LFP ghi nhiều tham số vào bộ nhớ NVM rồi cấu hình lại BMS IC. Chỉ dùng khi thật sự muốn khôi phục bộ thông số LFP.', presetCapacityLabel: 'Dung lượng (Ah)', runPreset: 'Áp preset LFP', presetWarning: 'Không có nút NMC/LTO trên giao diện để tránh chọn nhầm hóa học pin. Sau khi áp preset, dashboard sẽ đọc lại toàn bộ cấu hình.',
+                terminalTitle: '⌘ ThingSet / Zephyr shell console', clearLog: 'Xóa log', terminalReady: 'Sẵn sàng. Kết nối đúng COM6 trong hộp chọn của Edge để bắt đầu.', commandPlaceholder: 'Ví dụ: ?Meas · ?Conf · kernel version', sendCommand: 'Gửi', footer: 'Libre Solar BMS C1 · ESP32-C3 · ThingSet text mode · 115200 8N1',
+                statusDisconnected: 'Chưa kết nối', statusConnected: 'Đang kết nối {transport}', pollInitializing: 'Đang khởi tạo dữ liệu…', pollWaiting: 'Đang chờ kết nối', polling: 'Polling Meas · 2 s', disconnectedPoll: 'Đã ngắt kết nối',
+                notRead: 'Chưa đọc', stack: 'Stack: {value} V', power: 'Công suất: {value} W', capacityValue: 'Dung lượng định mức: {value} Ah', minMax: 'Min / max: {min} / {max} V', mosfetIc: 'MOSFET / IC: {mosfet} / {ic} °C', noError: 'Không lỗi', hasWarning: 'Có cảnh báo',
+                noSample: 'Chưa có mẫu', readError: 'Lỗi đọc', high: 'Cao', low: 'Thấp', balancing: 'Đang cân bằng', okay: 'Ổn', cellsCaptionNoData: 'Chưa có dữ liệu cell', cellsCaption: '{count} cell · {suffix}OVP {ov} V · UVP {uv} V', invalidRead: '{count} lỗi đọc · ',
+                diagnosticsNoFlags: '✓ Error flags = 0 · không có cờ lỗi.', hardwareLog: '⚠ Log phần cứng gần đây: {message}', bit: 'Bit {bit}: {label}',
+                socWaiting: 'Chưa có mẫu SOC', socState: 'Trạng thái: {state}', capacityUnknown: '—',
+                alertHardware: 'Board đã ghi nhận lỗi I²C/BMS IC; không dùng các cell bất hợp lệ để quyết định cấp nguồn.', alertInvalid: '{count} cell có giá trị ngoài 0–5 V, cần kiểm tra dây sense/đầu nối.', alertFlags: 'Error flags {flags} đang active.',
+                updatedAt: 'Cập nhật {time}', inputStatus: 'Nạp {chg} · Xả {dis}', noInput: 'Chưa đọc', stackDetail: 'stack', balancingNone: 'không cell nào',
+                webSerialUnavailable: 'Web Serial không khả dụng. Dùng Edge/Chrome trên localhost.', webBluetoothUnavailable: 'Web Bluetooth không khả dụng trên trình duyệt này.', usbPicker: 'Mở hộp chọn cổng USB. Chọn USB Serial/JTAG của ESP32-C3 (COM6).', bleSearching: 'Đang tìm thiết bị LibreSolar BMS-C1 qua BLE…',
+                bleConnected: 'BLE đã kết nối: {name}.', bleDisconnected: 'BLE đã ngắt kết nối.', usbOpen: 'USB đã mở ở 115200 8N1{info}.', connectionUsbError: 'Lỗi kết nối USB: {message}', connectionBleError: 'Lỗi kết nối BLE: {message}', accessDenied: 'COM đang bị chương trình khác giữ. Ngắt ThingSet App/serial monitor hoặc dashboard cũ rồi thử lại.',
+                configNotRead: 'Chưa đọc cấu hình. Kết nối board rồi bấm “Đọc lại cấu hình”.', configReading: 'Đang đọc Device, Meas, Conf, Input…', configReadOk: 'Đã đọc cấu hình thật từ board.', configReadFail: 'Không đọc được Conf; kiểm tra kết nối.', configRefresh: 'Đang đọc lại Conf, Input và reporting…', configSynced: 'Đã đồng bộ cấu hình với board.', configPartial: 'Một phần cấu hình chưa đọc được.', confirmRefresh: 'Có thay đổi chưa ghi. Đọc lại sẽ bỏ các thay đổi trên màn hình. Tiếp tục?',
+                disconnectedError: 'Chưa kết nối board', noConfigBase: 'Chưa có cấu hình đã đọc để làm cơ sở ghi.', noChanges: 'Không có thay đổi để ghi.', confirmConfig: 'Sẽ ghi {count} mục xuống BMS.\n\n{summary}\n\nChỉ tiếp tục nếu đúng pack LFP và bạn hiểu tác động. Xác nhận ghi?', writing: 'Đang ghi {path}…', writeFailed: 'Ghi {path} thất bại.', writingReporting: 'Đang ghi reporting {path}…', reportingFailed: 'Ghi reporting thất bại.', writeConfirmed: 'Đã ghi và đọc xác nhận lại từ board.', writeMismatch: 'Board đã phản hồi nhưng giá trị đọc lại chưa khớp; chưa coi là ghi thành công.',
+                confirmInput: 'Sẽ đổi quyền nạp/xả:\n\nNạp: {chg}\nXả: {dis}\n\nChỉ xác nhận khi nguồn test và tải đã an toàn.', inputWritten: 'Đã ghi enable nạp/xả.', inputWriteFailed: 'Ghi enable nạp/xả thất bại.',
+                presetCapacityError: 'Dung lượng preset phải trong 0.1–1000 Ah.', confirmPreset: 'Preset LFP sẽ ghi lại nhiều giới hạn bảo vệ và cấu hình lại BMS IC với {capacity} Ah.\n\nKhông chạy nếu chưa chắc board đang dùng cell LiFePO4. Tiếp tục?', presetSuccess: 'Preset LFP đã trả về thành công; đang đọc lại cấu hình.', presetFailed: 'Preset LFP thất bại.',
+                configBlocked: 'Config bị chặn: {message}', validation21: '{path} phải có đúng 21 số.', validationRange: '{path} có số ngoài dải an toàn.', validationEmpty: '{path} không được để trống.', validationNumber: '{path} không phải số hợp lệ.', validationBounds: '{path} ngoài dải {min}–{max}.', validationInteger: '{path} phải là số nguyên.', validationOvp: 'OVP reset phải thấp hơn Cell overvoltage.', validationUvp: 'UVP reset phải cao hơn Cell undervoltage.', validationBalance: 'Balancing min voltage không nên cao hơn OVP reset.', validationDisTemp: 'Dải nhiệt discharge không hợp lệ.', validationChgTemp: 'Dải nhiệt charge không hợp lệ.', validationOcv: 'sOcvPoints_V phải giảm dần.', validationSoc: 'sSocPoints_pct phải giảm dần.', validationPeriod: 'sPeriod_ms phải là số nguyên trong 100–60000 ms.',
+                readFailed: 'Đọc {request} thất bại.', timeout: 'Không nhận phản hồi cho {label}.', sendFailed: 'Không gửi được {label}: {error}', commandNotConnected: 'Chưa kết nối board.', sendError: 'Lỗi gửi lệnh: {message}', disconnected: 'Đã ngắt kết nối.'
+            },
+            en: {
+                pageTitle: 'Libre Solar BMS C1 · ThingSet dashboard',
+                subtitle: 'Monitor and configure directly over USB Serial or Bluetooth Low Energy. Values come from real ThingSet objects in the firmware; no simulated data is used.',
+                languageLabel: 'Language', connectUsb: '🔌 Connect COM', connectBle: '📡 BLE', disconnect: 'Disconnect',
+                secureNotice: 'Web Serial only works in a secure context. Open <code>http://localhost:8000/dashboard.html</code> (do not open it directly with <code>file://</code>).',
+                tabsLabel: 'Dashboard tabs', tabOverview: '📊 Overview', tabConfig: '⚙️ Config', overviewTitle: 'Overview · BMS status', overviewDescription: 'Polling the <code>Meas</code> group every 2 seconds while connected.',
+                socEyebrow: 'LIVE BATTERY VIEW', socTitle: 'State of charge', socScale: 'SOC', nominalCapacity: 'Nominal capacity',
+                metricPackVoltage: 'Pack voltage', metricPackCurrent: 'Pack current', metricSoc: 'SOC', metricCellDelta: 'Cell delta', metricTemperature: 'Temperature', metricStateErrors: 'State / errors',
+                measurementDetails: 'Measurement details', measurementDescription: 'Values returned by <code>?Meas</code>.', detailVoltageLabel: 'Pack / stack voltage', detailCurrentLabel: 'Pack current', detailCellStatsLabel: 'Cell avg / min / max', detailCellTempsLabel: 'Cell temperatures', detailIcTempsLabel: 'IC / MOSFET / shunt', detailBalancingLabel: 'Balancing status', detailInputsLabel: 'Inputs',
+                cellsTitle: 'Cell voltage · LiFePO4', cellsDescription: 'Negative values or values outside 0–5 V are marked as read errors and excluded from min/max.', diagnosticsTitle: 'Diagnostics', diagnosticsDescription: 'Decoded using the firmware enum/error bits.', diagnosticsWaiting: 'No measurement sample to evaluate yet.',
+                configTitle: 'Config · BMS configuration', configDescription: 'Read/write the firmware <code>Conf</code>, <code>Input</code> and reporting objects.', safetyNote: '<strong>⚠ LFP safety:</strong> the dashboard only allows voltage limits within the LFP protection range and checks reset/limit relationships. It does not automatically run a preset or change the MOSFETs. Every board write requires confirmation; these browser guards do not replace hardware checks.', refreshConfig: '↻ Refresh configuration', applyConfig: '✓ Write Conf changes',
+                configGeneralTitle: 'Battery & capacity', configGeneralHelp: 'Pack-wide settings. Capacity does not directly change cell voltage.', configVoltageTitle: 'Cell voltage · LFP', configVoltageHelp: 'Recommended LFP charge voltage is around 3.45–3.65 V/cell; do not overlap OVP/reset.', configCurrentTitle: 'Current limits', configCurrentHelp: 'Keep values within the actual cell, wiring, shunt and load capability.', configTemperatureTitle: 'Temperature limits', configTemperatureHelp: 'Charge/discharge protection limits from the BMS IC NTC.', configBalancingTitle: 'Cell balancing', configBalancingHelp: 'Balance only when voltage is high enough and the pack is idle.', configReportingTitle: 'ThingSet live reporting', configReportingHelp: 'Automatic shell reports are currently disabled; the dashboard polls Meas separately.', configCurvesTitle: 'OCV / SOC curve · advanced', configCurvesHelp: 'The LFP firmware uses 21 points. Do not change this without a measured curve for the cell/pack.', configCurvesFootnote: 'Required checks: exactly 21 values, OCV within 2.5–3.65 V/cell and decreasing; SOC within 0–100% and decreasing.',
+                configInputTitle: 'Charge / discharge enable', configInputHelp: 'These controls can change FET state. They are not changed automatically on connection.', chargeEnable: 'Allow charge (<code>wChgEnable</code>)', dischargeEnable: 'Allow discharge (<code>wDisEnable</code>)', liveReportCheckbox: 'Allow the board to publish live reports', applyInput: '⚠ Write charge/discharge enable', presetTitle: 'Preset cell chemistry', presetHelp: 'The LFP preset writes multiple protection settings to NVM and reconfigures the BMS IC. Use only when restoring LFP parameters.', presetCapacityLabel: 'Capacity (Ah)', runPreset: 'Apply LFP preset', presetWarning: 'NMC/LTO buttons are intentionally omitted to avoid selecting the wrong chemistry. The dashboard rereads all configuration after a preset.', terminalTitle: '⌘ ThingSet / Zephyr shell console', clearLog: 'Clear log', terminalReady: 'Ready. Choose COM6 in Edge to begin.', commandPlaceholder: 'Example: ?Meas · ?Conf · kernel version', sendCommand: 'Send', footer: 'Libre Solar BMS C1 · ESP32-C3 · ThingSet text mode · 115200 8N1',
+                statusDisconnected: 'Disconnected', statusConnected: 'Connected via {transport}', pollInitializing: 'Initializing data…', pollWaiting: 'Waiting for connection', polling: 'Polling Meas · 2 s', disconnectedPoll: 'Disconnected', notRead: 'Not read', stack: 'Stack: {value} V', power: 'Power: {value} W', capacityValue: 'Nominal capacity: {value} Ah', minMax: 'Min / max: {min} / {max} V', mosfetIc: 'MOSFET / IC: {mosfet} / {ic} °C', noError: 'No errors', hasWarning: 'Warning active',
+                noSample: 'No sample', readError: 'Read error', high: 'High', low: 'Low', balancing: 'Balancing', okay: 'OK', cellsCaptionNoData: 'No cell data', cellsCaption: '{count} cells · {suffix}OVP {ov} V · UVP {uv} V', invalidRead: '{count} read errors · ', diagnosticsNoFlags: '✓ Error flags = 0 · no active flags.', hardwareLog: '⚠ Recent hardware log: {message}', bit: 'Bit {bit}: {label}', socWaiting: 'No SOC sample yet', socState: 'State: {state}', capacityUnknown: '—',
+                alertHardware: 'The board reported an I²C/BMS IC error; invalid cells must not be used to decide whether to power the system.', alertInvalid: '{count} cell values are outside 0–5 V; check sense wiring/connectors.', alertFlags: 'Error flags {flags} are active.', updatedAt: 'Updated {time}', inputStatus: 'Charge {chg} · Discharge {dis}', noInput: 'Not read', stackDetail: 'stack', balancingNone: 'no cells',
+                webSerialUnavailable: 'Web Serial is unavailable. Use Edge/Chrome on localhost.', webBluetoothUnavailable: 'Web Bluetooth is unavailable in this browser.', usbPicker: 'Opening USB port picker. Select the ESP32-C3 USB Serial/JTAG port (COM6).', bleSearching: 'Searching for LibreSolar BMS-C1 over BLE…', bleConnected: 'BLE connected: {name}.', bleDisconnected: 'BLE disconnected.', usbOpen: 'USB opened at 115200 8N1{info}.', connectionUsbError: 'USB connection error: {message}', connectionBleError: 'BLE connection error: {message}', accessDenied: 'COM is held by another program. Close ThingSet App/serial monitor or an older dashboard and try again.',
+                configNotRead: 'Configuration not read. Connect the board, then click “Refresh configuration”.', configReading: 'Reading Device, Meas, Conf, Input…', configReadOk: 'Read live configuration from the board.', configReadFail: 'Could not read Conf; check the connection.', configRefresh: 'Refreshing Conf, Input and reporting…', configSynced: 'Configuration synchronized with the board.', configPartial: 'Some configuration could not be read.', confirmRefresh: 'There are unwritten changes. Refreshing will discard them from the screen. Continue?', disconnectedError: 'Board is not connected', noConfigBase: 'No read configuration is available as a write baseline.', noChanges: 'No changes to write.', confirmConfig: 'Write {count} item(s) to the BMS.\n\n{summary}\n\nContinue only for the correct LFP pack and when you understand the impact. Confirm write?', writing: 'Writing {path}…', writeFailed: 'Write failed for {path}.', writingReporting: 'Writing reporting {path}…', reportingFailed: 'Reporting write failed.', writeConfirmed: 'Written and reread from the board for confirmation.', writeMismatch: 'The board responded, but the reread value does not match; this write is not considered successful.',
+                confirmInput: 'Change charge/discharge permission:\n\nCharge: {chg}\nDischarge: {dis}\n\nConfirm only when the test source and load are safe.', inputWritten: 'Charge/discharge enable written.', inputWriteFailed: 'Charge/discharge enable write failed.', presetCapacityError: 'Preset capacity must be between 0.1–1000 Ah.', confirmPreset: 'The LFP preset will rewrite multiple protection limits and reconfigure the BMS IC for {capacity} Ah.\n\nDo not run this unless the board uses LiFePO4 cells. Continue?', presetSuccess: 'LFP preset succeeded; rereading configuration.', presetFailed: 'LFP preset failed.',
+                configBlocked: 'Config blocked: {message}', validation21: '{path} must contain exactly 21 values.', validationRange: '{path} contains a value outside the safe range.', validationEmpty: '{path} cannot be empty.', validationNumber: '{path} is not a valid number.', validationBounds: '{path} is outside {min}–{max}.', validationInteger: '{path} must be an integer.', validationOvp: 'OVP reset must be lower than Cell overvoltage.', validationUvp: 'UVP reset must be higher than Cell undervoltage.', validationBalance: 'Balancing min voltage should not be higher than OVP reset.', validationDisTemp: 'Discharge temperature range is invalid.', validationChgTemp: 'Charge temperature range is invalid.', validationOcv: 'sOcvPoints_V must be decreasing.', validationSoc: 'sSocPoints_pct must be decreasing.', validationPeriod: 'sPeriod_ms must be an integer from 100–60000 ms.',
+                readFailed: 'Read {request} failed.', timeout: 'No response for {label}.', sendFailed: 'Could not send {label}: {error}', commandNotConnected: 'Board is not connected.', sendError: 'Command send error: {message}', disconnected: 'Disconnected.'
+            }
+        };
+
+        const stateNames = { 0: { code: 'OFF', vi: 'Tắt', en: 'Off' }, 1: { code: 'CHG', vi: 'Đang cho phép nạp', en: 'Charge enabled' }, 2: { code: 'DIS', vi: 'Đang cho phép xả', en: 'Discharge enabled' }, 3: { code: 'NORMAL', vi: 'Bình thường', en: 'Normal' }, 4: { code: 'SHUTDOWN', vi: 'Shutdown', en: 'Shutdown' } };
+        const errorDefinitions = [[0, 'Hạ áp cell', 'Cell undervoltage'], [1, 'Quá áp cell', 'Cell overvoltage'], [2, 'Ngắn mạch', 'Short circuit'], [3, 'Quá dòng xả', 'Discharge overcurrent'], [4, 'Quá dòng nạp', 'Charge overcurrent'], [5, 'Đứt dây sense', 'Open wire'], [6, 'Nhiệt độ xả quá thấp', 'Discharge under-temperature'], [7, 'Nhiệt độ xả quá cao', 'Discharge over-temperature'], [8, 'Nhiệt độ nạp quá thấp', 'Charge under-temperature'], [9, 'Nhiệt độ nạp quá cao', 'Charge over-temperature'], [10, 'Nhiệt độ bên trong quá cao', 'Internal over-temperature'], [11, 'Lỗi cell', 'Cell failure'], [12, 'Đã khóa xả', 'Discharge disabled'], [13, 'Đã khóa nạp', 'Charge disabled'], [14, 'FET quá nhiệt', 'FET over-temperature']];
+        const configDefinitions = [
+            { group: 'general', path: 'sNominalCapacity_Ah', label: 'Dung lượng danh định', unit: 'Ah', min: 0.1, max: 1000, step: 0.1, help: 'Dung lượng pack hoặc tổng dung lượng cell song song.' },
+            { group: 'voltage', path: 'sCellOvervoltage_V', label: 'Cell overvoltage', unit: 'V', min: 3.40, max: 3.80, step: 0.001, help: 'LFP: khuyến nghị không vượt 3.65 V.' },
+            { group: 'voltage', path: 'sCellOvervoltageReset_V', label: 'OVP reset', unit: 'V', min: 3.30, max: 3.79, step: 0.001, help: 'Phải thấp hơn OVP.' },
+            { group: 'voltage', path: 'sCellOvervoltageDelay_ms', label: 'OVP delay', unit: 'ms', min: 1, max: 60000, step: 1, integer: true },
+            { group: 'voltage', path: 'sCellUndervoltage_V', label: 'Cell undervoltage', unit: 'V', min: 2.50, max: 3.20, step: 0.001, help: 'Dải guard phù hợp LFP; không nâng nếu chưa đánh giá tải.' },
+            { group: 'voltage', path: 'sCellUndervoltageReset_V', label: 'UVP reset', unit: 'V', min: 2.60, max: 3.40, step: 0.001, help: 'Phải cao hơn UVP.' },
+            { group: 'voltage', path: 'sCellUndervoltageDelay_ms', label: 'UVP delay', unit: 'ms', min: 1, max: 60000, step: 1, integer: true },
+            { group: 'current', path: 'sShortCircuitLimit_A', label: 'Short-circuit limit', unit: 'A', min: 0.1, max: 100, step: 0.1 },
+            { group: 'current', path: 'sShortCircuitDelay_us', label: 'Short-circuit delay', unit: 'µs', min: 1, max: 1000000, step: 1, integer: true },
+            { group: 'current', path: 'sDisOvercurrent_A', label: 'Discharge overcurrent', unit: 'A', min: 0.1, max: 100, step: 0.1 },
+            { group: 'current', path: 'sDisOvercurrentDelay_ms', label: 'Discharge OC delay', unit: 'ms', min: 1, max: 60000, step: 1, integer: true },
+            { group: 'current', path: 'sChgOvercurrent_A', label: 'Charge overcurrent', unit: 'A', min: 0.1, max: 100, step: 0.1 },
+            { group: 'current', path: 'sChgOvercurrentDelay_ms', label: 'Charge OC delay', unit: 'ms', min: 1, max: 60000, step: 1, integer: true },
+            { group: 'temperature', path: 'sDisMaxTemp_degC', label: 'Discharge max temp', unit: '°C', min: 0, max: 60, step: 0.1 },
+            { group: 'temperature', path: 'sDisMinTemp_degC', label: 'Discharge min temp', unit: '°C', min: -30, max: 30, step: 0.1 },
+            { group: 'temperature', path: 'sChgMaxTemp_degC', label: 'Charge max temp', unit: '°C', min: 0, max: 60, step: 0.1 },
+            { group: 'temperature', path: 'sChgMinTemp_degC', label: 'Charge min temp', unit: '°C', min: -10, max: 30, step: 0.1 },
+            { group: 'temperature', path: 'sTempLimitHysteresis_degC', label: 'Temp hysteresis', unit: '°C', min: 0, max: 15, step: 0.1 },
+            { group: 'balancing', path: 'sBalTargetVoltageDiff_V', label: 'Balancing delta', unit: 'V', min: 0.001, max: 0.050, step: 0.001, help: '10 mV = 0.010 V.' },
+            { group: 'balancing', path: 'sBalMinVoltage_V', label: 'Balancing min voltage', unit: 'V', min: 2.50, max: 3.65, step: 0.001 },
+            { group: 'balancing', path: 'sBalIdleDelay_s', label: 'Idle delay', unit: 's', min: 0, max: 86400, step: 1, integer: true },
+            { group: 'balancing', path: 'sBalIdleCurrent_A', label: 'Idle current', unit: 'A', min: 0, max: 20, step: 0.01 },
+            { group: 'reporting', scope: 'reporting', path: 'sEnable', label: 'Live reporting', unit: '', type: 'checkbox', help: 'Board có thể tự phát báo cáo; dashboard vẫn polling riêng.' },
+            { group: 'reporting', scope: 'reporting', path: 'sPeriod_ms', label: 'Live period', unit: 'ms', min: 100, max: 60000, step: 100, integer: true },
+            { group: 'curves', path: 'sOcvPoints_V', label: 'OCV points (21 số)', unit: 'V', type: 'array', min: 2.5, max: 3.65, help: 'Cách nhau bằng dấu phẩy hoặc khoảng trắng.' },
+            { group: 'curves', path: 'sSocPoints_pct', label: 'SOC points (21 số)', unit: '%', type: 'array', min: 0, max: 100, help: 'Cách nhau bằng dấu phẩy hoặc khoảng trắng.' }
+        ];
+
+        const appState = { language: 'vi', connected: false, transport: null, port: null, serialReader: null, serialWriter: null, readLoopPromise: null, bleDevice: null, bleDownlink: null, bleUplink: null, rxBuffer: '', bleBuffer: '', intentionalDisconnect: false, requestQueue: [], activeRequest: null, pollTimer: null, telemetry: {}, device: {}, config: {}, input: {}, reporting: {}, configLoaded: false, configDirty: false, configStatusInitialized: false, hardwareFault: false, hardwareMessages: [], lastMeasurementAt: null, cellValues: [] };
+
+        function byId(id) { return document.getElementById(id); }
+        function setText(id, value) { const element = byId(id); if (element) element.textContent = value; }
+        function finiteNumber(value) { if (value === null || value === undefined || value === '' || typeof value === 'string' && value.trim() === '') return null; const number = Number(value); return Number.isFinite(number) ? number : null; }
+        function formatNumber(value, digits = 2) { const number = finiteNumber(value); return number === null ? '—' : number.toFixed(digits); }
+        function formatHex(value) { const number = finiteNumber(value); return number === null ? '—' : `0x${Math.trunc(number).toString(16).toUpperCase().padStart(4, '0')}`; }
+        function jsonEqual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+        function t(key, variables = {}) {
+            const table = translations[appState.language] || translations.vi;
+            let value = table[key] ?? translations.vi[key] ?? key;
+            Object.entries(variables).forEach(([name, replacement]) => { value = value.replaceAll(`{${name}}`, () => String(replacement)); });
+            return value;
+        }
+        function configLabel(definition) {
+            const labels = {
+                sNominalCapacity_Ah: { vi: 'Dung lượng danh định', en: 'Nominal capacity' },
+                sCellOvervoltage_V: { vi: 'Cell overvoltage', en: 'Cell overvoltage' },
+                sCellOvervoltageReset_V: { vi: 'OVP reset', en: 'OVP reset' },
+                sCellOvervoltageDelay_ms: { vi: 'Thời gian trễ OVP', en: 'OVP delay' },
+                sCellUndervoltage_V: { vi: 'Cell undervoltage', en: 'Cell undervoltage' },
+                sCellUndervoltageReset_V: { vi: 'UVP reset', en: 'UVP reset' },
+                sCellUndervoltageDelay_ms: { vi: 'Thời gian trễ UVP', en: 'UVP delay' },
+                sShortCircuitLimit_A: { vi: 'Giới hạn ngắn mạch', en: 'Short-circuit limit' },
+                sShortCircuitDelay_us: { vi: 'Thời gian trễ ngắn mạch', en: 'Short-circuit delay' },
+                sDisOvercurrent_A: { vi: 'Quá dòng xả', en: 'Discharge overcurrent' },
+                sDisOvercurrentDelay_ms: { vi: 'Trễ quá dòng xả', en: 'Discharge OC delay' },
+                sChgOvercurrent_A: { vi: 'Quá dòng nạp', en: 'Charge overcurrent' },
+                sChgOvercurrentDelay_ms: { vi: 'Trễ quá dòng nạp', en: 'Charge OC delay' },
+                sDisMaxTemp_degC: { vi: 'Nhiệt độ xả tối đa', en: 'Discharge max temp' },
+                sDisMinTemp_degC: { vi: 'Nhiệt độ xả tối thiểu', en: 'Discharge min temp' },
+                sChgMaxTemp_degC: { vi: 'Nhiệt độ nạp tối đa', en: 'Charge max temp' },
+                sChgMinTemp_degC: { vi: 'Nhiệt độ nạp tối thiểu', en: 'Charge min temp' },
+                sTempLimitHysteresis_degC: { vi: 'Độ trễ giới hạn nhiệt', en: 'Temperature hysteresis' },
+                sBalTargetVoltageDiff_V: { vi: 'Độ lệch để cân bằng', en: 'Balancing delta' },
+                sBalMinVoltage_V: { vi: 'Điện áp tối thiểu cân bằng', en: 'Balancing min voltage' },
+                sBalIdleDelay_s: { vi: 'Thời gian chờ idle', en: 'Idle delay' },
+                sBalIdleCurrent_A: { vi: 'Dòng khi idle', en: 'Idle current' },
+                sEnable: { vi: 'Live reporting', en: 'Live reporting' },
+                sPeriod_ms: { vi: 'Chu kỳ live reporting', en: 'Live period' },
+                sOcvPoints_V: { vi: 'Các điểm OCV (21 số)', en: 'OCV points (21 values)' },
+                sSocPoints_pct: { vi: 'Các điểm SOC (21 số)', en: 'SOC points (21 values)' }
+            };
+            return labels[definition.path]?.[appState.language] || definition.label;
+        }
+        function configHelp(definition) {
+            const helps = {
+                sNominalCapacity_Ah: { vi: 'Dung lượng pack hoặc tổng dung lượng cell song song.', en: 'Pack capacity or total parallel-cell capacity.' },
+                sCellOvervoltage_V: { vi: 'LFP: khuyến nghị không vượt 3.65 V.', en: 'LFP: recommended not above 3.65 V.' },
+                sCellOvervoltageReset_V: { vi: 'Phải thấp hơn OVP.', en: 'Must be lower than OVP.' },
+                sCellUndervoltage_V: { vi: 'Dải guard phù hợp LFP; không nâng nếu chưa đánh giá tải.', en: 'LFP-safe guard range; do not raise without load analysis.' },
+                sCellUndervoltageReset_V: { vi: 'Phải cao hơn UVP.', en: 'Must be higher than UVP.' },
+                sBalTargetVoltageDiff_V: { vi: '10 mV = 0.010 V.', en: '10 mV = 0.010 V.' },
+                sOcvPoints_V: { vi: 'Cách nhau bằng dấu phẩy hoặc khoảng trắng.', en: 'Separate with commas or spaces.' },
+                sSocPoints_pct: { vi: 'Cách nhau bằng dấu phẩy hoặc khoảng trắng.', en: 'Separate with commas or spaces.' },
+                sEnable: { vi: 'Board có thể tự phát báo cáo; dashboard vẫn polling riêng.', en: 'The board may publish reports; the dashboard still polls separately.' }
+            };
+            return helps[definition.path]?.[appState.language] || definition.help || '';
+        }
+        function updateConfigText() {
+            document.querySelectorAll('[data-config-label]').forEach(element => {
+                const definition = configDefinitions.find(item => item.path === element.dataset.configLabel);
+                if (definition) element.textContent = configLabel(definition);
+            });
+            document.querySelectorAll('[data-config-help]').forEach(element => {
+                const definition = configDefinitions.find(item => item.path === element.dataset.configHelp);
+                if (definition) element.textContent = configHelp(definition);
+            });
+            document.querySelectorAll('[data-config-checkbox-text]').forEach(element => { element.textContent = t('liveReportCheckbox'); });
+        }
+        function applyLanguage(language) {
+            appState.language = language === 'en' ? 'en' : 'vi';
+            document.documentElement.lang = appState.language;
+            const selector = byId('languageSelect'); if (selector) selector.value = appState.language;
+            const title = byId('pageTitle'); if (title) title.textContent = t('pageTitle');
+            document.querySelectorAll('[data-i18n]').forEach(element => { element.textContent = t(element.dataset.i18n); });
+            document.querySelectorAll('[data-i18n-html]').forEach(element => { element.innerHTML = t(element.dataset.i18nHtml); });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => { element.placeholder = t(element.dataset.i18nPlaceholder); });
+            document.querySelectorAll('[data-i18n-aria]').forEach(element => { element.setAttribute('aria-label', t(element.dataset.i18nAria)); });
+            updateConfigText();
+            if (!appState.configStatusInitialized) { setText('configStatus', t('configNotRead')); appState.configStatusInitialized = true; }
+            setText('statusText', appState.connected ? t('statusConnected', { transport: appState.transport }) : t('statusDisconnected'));
+            setText('pollState', appState.connected ? (appState.lastMeasurementAt ? t('polling') : t('pollInitializing')) : t('pollWaiting'));
+            updateDeviceHeader(); updateOverview(); updateDiagnostics(); updateAlertBanner();
+        }
+        function changeLanguage(language) { applyLanguage(language); try { localStorage.setItem('bmsDashboardLanguage', appState.language); } catch (_) { } }
+
+        function logLine(message, kind = '') {
+            const log = byId('terminalLog');
+            const line = document.createElement('span');
+            line.className = `terminal-line${kind ? ` ${kind}` : ''}`;
+            line.textContent = message;
+            log.appendChild(line);
+            while (log.children.length > 350) log.removeChild(log.firstChild);
+            log.scrollTop = log.scrollHeight;
+        }
+        function clearTerminal() { byId('terminalLog').replaceChildren(); }
+        function stripAnsi(text) { return text.replace(/\u001B\[[0-?]*[ -\/]*[@-~]/g, '').replace(/\u009B[0-?]*[ -\/]*[@-~]/g, ''); }
+
+        function updateConnectionUI(connected, transport = '') {
+            appState.connected = connected;
+            appState.transport = connected ? transport : null;
+            byId('btnConnectUSB').hidden = connected;
+            byId('btnConnectBLE').hidden = connected;
+            byId('btnDisconnect').hidden = !connected;
+            byId('statusDot').className = `status-dot${connected ? ' online' : ''}`;
+            setText('statusText', connected ? t('statusConnected', { transport }) : t('statusDisconnected'));
+            setText('pollState', connected ? t('pollInitializing') : t('pollWaiting'));
+            byId('btnRefreshConfig').disabled = !connected;
+            updateApplyButton();
+            updateAlertBanner();
+        }
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.toggle('active', button.dataset.tab === tabName));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === `tab-${tabName}`));
+        }
+        function detectEnvironment() {
+            const secure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            byId('secureNotice').hidden = secure;
+            if (!('serial' in navigator)) { byId('btnConnectUSB').disabled = true; logLine(t('webSerialUnavailable'), 'error'); }
+            if (!('bluetooth' in navigator)) { byId('btnConnectBLE').disabled = true; logLine(t('webBluetoothUnavailable'), 'error'); }
+            renderConfigForms();
+            renderCells([]);
+            let savedLanguage = 'vi'; try { savedLanguage = localStorage.getItem('bmsDashboardLanguage') || 'vi'; } catch (_) { }
+            applyLanguage(savedLanguage);
+        }
+
+        async function connectUSB() {
+            if (!('serial' in navigator)) { logLine(t('webSerialUnavailable'), 'error'); return; }
+            try {
+                logLine(t('usbPicker'));
+                const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303A }] });
+                await port.open({ baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
+                appState.port = port;
+                appState.serialWriter = port.writable.getWriter();
+                appState.intentionalDisconnect = false;
+                updateConnectionUI(true, 'USB COM');
+                const info = port.getInfo ? port.getInfo() : {};
+                logLine(t('usbOpen', { info: info.usbProductId ? ` · VID 0x${Number(info.usbVendorId).toString(16).toUpperCase()} PID 0x${Number(info.usbProductId).toString(16).toUpperCase()}` : '' }));
+                appState.readLoopPromise = readSerialLoop(port);
+                await sendRawTransport('\r\n');
+                await delay(180);
+                await queryInitialData();
+            } catch (error) {
+                const message = error.message || String(error);
+                logLine(t('connectionUsbError', { message }), 'error');
+                if (/access is denied|failed to open|already in use|cannot open/i.test(message)) logLine(t('accessDenied'), 'error');
+                await disconnectDevice(true);
+            }
+        }
+
+        async function readSerialLoop(port) {
+            if (!port.readable) return;
+            const decoder = new TextDecoder();
+            const reader = port.readable.getReader();
+            appState.serialReader = reader;
+            try {
+                while (appState.connected && appState.transport === 'USB COM') {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) { appState.rxBuffer += decoder.decode(value, { stream: true }); processTextBuffer(); }
+                }
+            } catch (error) {
+                if (!appState.intentionalDisconnect) logLine(`Mất kết nối USB: ${error.message || error}`, 'error');
+            } finally {
+                try { reader.releaseLock(); } catch (_) { }
+                if (appState.serialReader === reader) appState.serialReader = null;
+                if (appState.connected && !appState.intentionalDisconnect) { updateConnectionUI(false); stopPolling(); }
+            }
+        }
+
+        async function sendRawTransport(text) {
+            if (!appState.connected) throw new Error('Chưa kết nối board');
+            const bytes = new TextEncoder().encode(text);
+            if (appState.transport === 'USB COM') {
+                if (!appState.serialWriter) throw new Error('USB writer chưa sẵn sàng');
+                await appState.serialWriter.write(bytes);
+            } else if (appState.transport === 'BLE') {
+                if (!appState.bleDownlink) throw new Error('BLE characteristic chưa sẵn sàng');
+                /*
+                 * The firmware reassembles a ThingSet message across BLE writes,
+                 * but a default ATT connection only accepts 20 payload bytes per
+                 * write. A complete Conf command is usually longer than that.
+                 */
+                for (let offset = 0; offset < bytes.length; offset += BLE_WRITE_CHUNK_SIZE) {
+                    const chunk = bytes.slice(offset, offset + BLE_WRITE_CHUNK_SIZE);
+                    if (typeof appState.bleDownlink.writeValueWithoutResponse === 'function') await appState.bleDownlink.writeValueWithoutResponse(chunk);
+                    else await appState.bleDownlink.writeValue(chunk);
+                    if (offset + BLE_WRITE_CHUNK_SIZE < bytes.length) await delay(6);
+                }
+            }
+        }
+
+        async function connectBLE() {
+            if (!('bluetooth' in navigator)) { logLine(t('webBluetoothUnavailable'), 'error'); return; }
+            try {
+                logLine(t('bleSearching'));
+                const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }], optionalServices: [SERVICE_UUID] });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                const uplink = await service.getCharacteristic(BLE_UPLINK_UUID);
+                const downlink = await service.getCharacteristic(BLE_DOWNLINK_UUID);
+                await uplink.startNotifications();
+                uplink.addEventListener('characteristicvaluechanged', event => { appState.bleBuffer += new TextDecoder().decode(event.target.value, { stream: true }); processBleBuffer(); });
+                device.addEventListener('gattserverdisconnected', () => { if (appState.connected && !appState.intentionalDisconnect) { logLine(t('bleDisconnected'), 'error'); updateConnectionUI(false); stopPolling(); } });
+                appState.bleDevice = device; appState.bleDownlink = downlink; appState.bleUplink = uplink; appState.intentionalDisconnect = false;
+                updateConnectionUI(true, 'BLE');
+                logLine(t('bleConnected', { name: device.name || 'LibreSolar BMS-C1' }));
+                await queryInitialData();
+            } catch (error) { logLine(t('connectionBleError', { message: error.message || error }), 'error'); await disconnectDevice(true); }
+        }
+
+        function processTextBuffer() { const lines = appState.rxBuffer.split(/\r?\n/); appState.rxBuffer = lines.pop() || ''; lines.forEach(processIncomingLine); }
+        function processBleBuffer() { const lines = appState.bleBuffer.split(/\r?\n/); appState.bleBuffer = lines.pop() || ''; lines.forEach(processIncomingLine); }
+        function parsePayload(payloadText) { const text = (payloadText || '').trim(); if (!text) return null; try { return JSON.parse(text); } catch (_) { return text.replace(/^"|"$/g, ''); } }
+
+        function processIncomingLine(rawLine) {
+            const line = stripAnsi(rawLine).trim();
+            if (!line) return;
+            logLine(line);
+            const lower = line.toLowerCase();
+            if (lower.includes('i2c error') || lower.includes('failed to read from bms ic') || lower.includes('open wire')) {
+                appState.hardwareFault = true;
+                if (!appState.hardwareMessages.includes(line)) appState.hardwareMessages.push(line);
+                appState.hardwareMessages = appState.hardwareMessages.slice(-4);
+                updateAlertBanner(); updateDiagnostics();
+            }
+            const responseMatch = line.match(/^:([0-9a-f]{2})(?:\s+(.*))?$/i);
+            if (responseMatch) { handleThingSetResponse(parseInt(responseMatch[1], 16), parsePayload(responseMatch[2] || ''), responseMatch[2] || ''); return; }
+            if (line.startsWith('#')) { const report = line.match(/^#[^ ]*\s+(.*)$/); if (report) { const data = parsePayload(report[1]); if (data && typeof data === 'object') applyModelData('', data); } }
+            else if (line.startsWith('{') && line.endsWith('}')) { const data = parsePayload(line); if (data && typeof data === 'object') applyModelData('', data); }
+        }
+
+        function handleThingSetResponse(code, payload, rawPayload) {
+            const active = appState.activeRequest;
+            if (code === 0x85 || code === 0x84 || code === 0x81 || code === 0x82) {
+                if (payload && typeof payload === 'object') applyModelData(active ? active.request : '', payload);
+                if (active) finishActiveRequest({ ok: true, code, payload, rawPayload });
+            } else {
+                const detail = rawPayload || `ThingSet response :${code.toString(16).toUpperCase()}`;
+                logLine(`ThingSet lỗi :${code.toString(16).toUpperCase()} ${detail}`, 'error');
+                if (active) finishActiveRequest({ ok: false, code, payload, rawPayload, error: detail });
+            }
+        }
+
+        function applyModelData(request, payload) {
+            if (!payload || typeof payload !== 'object') return;
+            const requestPath = (request || '').replace(/^[?=+\-!]/, '');
+            if (requestPath === '') {
+                if (payload.Device && typeof payload.Device === 'object') appState.device = { ...appState.device, ...payload.Device };
+                if (payload.Conf && typeof payload.Conf === 'object') appState.config = { ...appState.config, ...payload.Conf };
+                if (payload.Meas && typeof payload.Meas === 'object') appState.telemetry = { ...appState.telemetry, ...payload.Meas };
+                if (payload.Input && typeof payload.Input === 'object') appState.input = { ...appState.input, ...payload.Input };
+                if (payload.pNodeID) appState.device.pNodeID = payload.pNodeID;
+                if (payload.pNodeName) appState.device.pNodeName = payload.pNodeName;
+            } else if (requestPath === 'Device') appState.device = { ...appState.device, ...payload };
+            else if (requestPath === 'Meas') { appState.telemetry = { ...appState.telemetry, ...payload }; appState.lastMeasurementAt = new Date(); if (Array.isArray(payload.rCellVoltages_V)) appState.cellValues = payload.rCellVoltages_V.slice(); }
+            else if (requestPath === 'Conf') { appState.config = { ...appState.config, ...payload }; appState.configLoaded = true; }
+            else if (requestPath === 'Input') appState.input = { ...appState.input, ...payload };
+            else if (requestPath === '_Reporting/mLive') appState.reporting = { ...appState.reporting, ...payload };
+            else if (requestPath === 'mLive' && Array.isArray(payload)) appState.device.mLive = payload;
+            else if (payload.rPackVoltage_V !== undefined || payload.rCellVoltages_V !== undefined) { appState.telemetry = { ...appState.telemetry, ...payload }; appState.lastMeasurementAt = new Date(); if (Array.isArray(payload.rCellVoltages_V)) appState.cellValues = payload.rCellVoltages_V.slice(); }
+            updateDeviceHeader(); updateOverview(); updateDiagnostics();
+            const shouldRefreshForm = requestPath === '' || requestPath === 'Conf' || requestPath === '_Reporting/mLive';
+            if (shouldRefreshForm) updateConfigFormValues(request.startsWith('?'));
+            if (requestPath === 'Input') updateInputFormValues();
+            updateApplyButton();
+        }
+
+        function updateDeviceHeader() { const type = appState.device.cDeviceType || 'BMS C1'; const version = appState.device.cHardwareVersion ? ` · ${appState.device.cHardwareVersion}` : ''; setText('headerDevice', `${type}${version}`); }
+
+        function updateOverview() {
+            const m = appState.telemetry; const voltage = finiteNumber(m.rPackVoltage_V); const current = finiteNumber(m.rPackCurrent_A);
+            setText('valPackVoltage', formatNumber(voltage, 2));
+            setText('subPackVoltage', t('stack', { value: formatNumber(m.rStackVoltage_V, 2) }));
+            setText('valPackCurrent', formatNumber(current, 2));
+            setText('valPower', t('power', { value: voltage !== null && current !== null ? formatNumber(voltage * current, 1) : '—' }));
+            setText('valSOC', formatNumber(m.rSOC_pct, 1));
+            setText('valCapacity', t('capacityValue', { value: formatNumber(appState.config.sNominalCapacity_Ah, 1) }));
+            const bmsState = finiteNumber(m.rBmsState); const state = bmsState !== null ? stateNames[Math.trunc(bmsState)] : null;
+            updateSocGauge(m.rSOC_pct, state);
+
+            const cells = Array.isArray(m.rCellVoltages_V) ? m.rCellVoltages_V : []; renderCells(cells);
+            const validCells = cells.map(finiteNumber).filter(v => v !== null && v >= 0 && v <= 5);
+            const minCell = finiteNumber(m.rCellMinVoltage_V) ?? (validCells.length ? Math.min(...validCells) : null);
+            const maxCell = finiteNumber(m.rCellMaxVoltage_V) ?? (validCells.length ? Math.max(...validCells) : null);
+            const delta = minCell !== null && maxCell !== null ? Math.max(0, (maxCell - minCell) * 1000) : null;
+            setText('valCellDelta', formatNumber(delta, 0));
+            setText('valMinMax', t('minMax', { min: formatNumber(minCell, 3), max: formatNumber(maxCell, 3) }));
+            const temps = Array.isArray(m.rCellTemps_degC) ? m.rCellTemps_degC.map(finiteNumber).filter(v => v !== null) : [];
+            const tempMin = temps.length ? Math.min(...temps) : null; const tempMax = temps.length ? Math.max(...temps) : null;
+            setText('valTemps', tempMin !== null && tempMax !== null ? `${formatNumber(tempMin, 1)} / ${formatNumber(tempMax, 1)}` : '—');
+            setText('valThermalDetail', t('mosfetIc', { mosfet: formatNumber(m.rMOSFETTemp_degC, 1), ic: formatNumber(m.rICTemp_degC, 1) }));
+            setText('valBmsState', state ? `${state.code} · ${state[appState.language]}` : '—');
+            const flags = finiteNumber(m.rErrorFlags); setText('valErrorFlags', flags === null ? t('notRead') : `${formatHex(flags)} · ${flags === 0 ? t('noError') : t('hasWarning')}`);
+
+            setText('detailVoltage', `${formatNumber(voltage, 2)} V / ${t('stackDetail')} ${formatNumber(m.rStackVoltage_V, 2)} V`);
+            setText('detailCurrent', `${formatNumber(current, 2)} A · ${voltage !== null && current !== null ? formatNumber(voltage * current, 1) : '—'} W`);
+            setText('detailCellStats', `${formatNumber(m.rCellAvgVoltage_V, 3)} / ${formatNumber(minCell, 3)} / ${formatNumber(maxCell, 3)} V`);
+            setText('detailCellTemps', temps.length ? temps.map(v => `${v.toFixed(1)} °C`).join(' · ') : '—');
+            setText('detailIcTemps', `IC ${formatNumber(m.rICTemp_degC, 1)} °C · MOSFET ${formatNumber(m.rMOSFETTemp_degC, 1)} °C · shunt ${formatNumber(m.rShuntTemp_degC, 1)} °C`);
+            const balancing = finiteNumber(m.rBalancingStatus); const balancingCells = balancing === null ? [] : cells.map((_, index) => (Math.trunc(balancing) & (1 << index)) ? index + 1 : null).filter(Boolean);
+            setText('detailBalancing', balancing === null ? '—' : `${formatHex(balancing)}${balancingCells.length ? ` · C${balancingCells.join(', C')}` : ` · ${t('balancingNone')}`}`);
+            setText('detailInputs', Object.keys(appState.input).length ? t('inputStatus', { chg: appState.input.wChgEnable ? 'ON' : 'OFF', dis: appState.input.wDisEnable ? 'ON' : 'OFF' }) : t('noInput'));
+            if (appState.lastMeasurementAt) { setText('lastUpdate', t('updatedAt', { time: appState.lastMeasurementAt.toLocaleTimeString(appState.language === 'vi' ? 'vi-VN' : 'en-US') })); setText('pollState', appState.connected ? t('polling') : t('disconnectedPoll')); }
+        }
+
+        function updateSocGauge(soc, state) {
+            const value = finiteNumber(soc); const fill = byId('socGaugeFill');
+            setText('socGaugeValue', value === null ? '—' : formatNumber(value, 1));
+            if (fill) {
+                const percentage = value === null ? 0 : Math.max(0, Math.min(100, value));
+                fill.style.strokeDashoffset = String(100 - percentage);
+                fill.classList.toggle('low', value !== null && percentage < 20);
+                fill.classList.toggle('mid', value !== null && percentage >= 20 && percentage < 50);
+            }
+            const stateText = state ? `${state.code} · ${state[appState.language]}` : null;
+            setText('socGaugeState', stateText ? t('socState', { state: stateText }) : value === null ? t('socWaiting') : t('socScale'));
+            const capacity = finiteNumber(appState.config.sNominalCapacity_Ah);
+            setText('socGaugeCapacity', capacity === null ? t('capacityUnknown') : `${formatNumber(capacity, 1)} Ah`);
+        }
+
+        function renderCells(cells) {
+            const grid = byId('cellsGrid'); const count = Math.max(cells.length || 0, 16); const uv = finiteNumber(appState.config.sCellUndervoltage_V) ?? 2.5; const ov = finiteNumber(appState.config.sCellOvervoltage_V) ?? 3.8; const balancing = finiteNumber(appState.telemetry.rBalancingStatus); grid.replaceChildren();
+            for (let index = 0; index < count; index += 1) {
+                const value = finiteNumber(cells[index]); const invalid = value !== null && (value < 0 || value > 5); const low = value !== null && !invalid && value < uv; const high = value !== null && !invalid && value > ov; const isBalancing = value !== null && balancing !== null && (Math.trunc(balancing) & (1 << index)); const card = document.createElement('div'); card.className = `cell-card${invalid ? ' invalid' : ''}${low ? ' low' : ''}${high ? ' high' : ''}${isBalancing ? ' balancing' : ''}`; const percentage = value === null || invalid ? 0 : Math.max(2, Math.min(100, ((value - LFP_DISPLAY_MIN_V) / (LFP_DISPLAY_MAX_V - LFP_DISPLAY_MIN_V)) * 100)); const status = value === null ? t('noSample') : invalid ? t('readError') : high ? t('high') : low ? t('low') : isBalancing ? t('balancing') : t('okay'); card.innerHTML = `<div class="cell-top"><span>C${index + 1}</span><span class="cell-value">${value === null ? '—' : value.toFixed(3)}</span></div><div class="cell-track"><div class="cell-fill" style="height:${percentage}%"></div></div><div class="cell-footer">${status}</div>`; grid.appendChild(card);
+            }
+            const valid = cells.map(finiteNumber).filter(v => v !== null && v >= 0 && v <= 5); const invalidCount = cells.length - valid.length; setText('cellsCaption', cells.length ? t('cellsCaption', { count: cells.length, invalid: invalidCount, suffix: invalidCount ? t('invalidRead', { count: invalidCount }) : '', ov: ov.toFixed(3), uv: uv.toFixed(3) }) : t('cellsCaptionNoData'));
+        }
+
+        function updateDiagnostics() {
+            const list = byId('errorList'); const flags = finiteNumber(appState.telemetry.rErrorFlags); list.replaceChildren();
+            if (flags === null) list.innerHTML = `<div class="error-item ok-item">${t('diagnosticsWaiting')}</div>`; else { const activeErrors = errorDefinitions.filter(([bit]) => (Math.trunc(flags) & (1 << bit)) !== 0); if (!activeErrors.length) list.innerHTML = `<div class="error-item ok-item">${t('diagnosticsNoFlags')}</div>`; else activeErrors.forEach(([bit, viLabel, enLabel]) => { const item = document.createElement('div'); item.className = 'error-item'; item.textContent = t('bit', { bit, label: appState.language === 'en' ? enLabel : viLabel }); list.appendChild(item); }); }
+            const hardwareLog = byId('hardwareLog'); if (appState.hardwareMessages.length) { hardwareLog.hidden = false; hardwareLog.textContent = t('hardwareLog', { message: appState.hardwareMessages[appState.hardwareMessages.length - 1] }); } else hardwareLog.hidden = true;
+        }
+
+        function updateAlertBanner() {
+            const banner = byId('alertBanner'); if (!appState.connected) { banner.className = 'alert'; return; }
+            const m = appState.telemetry; const cells = Array.isArray(m.rCellVoltages_V) ? m.rCellVoltages_V : []; const invalid = cells.filter(value => { const v = finiteNumber(value); return v === null || v < 0 || v > 5; }).length; const flags = finiteNumber(m.rErrorFlags); const parts = [];
+            if (appState.hardwareFault) parts.push(t('alertHardware')); if (invalid) parts.push(t('alertInvalid', { count: invalid })); if (flags !== null && flags !== 0) parts.push(t('alertFlags', { flags: formatHex(flags) }));
+            if (!parts.length) { banner.className = 'alert'; return; } banner.className = `alert show${appState.hardwareFault || invalid ? ' error' : ''}`; setText('alertIcon', appState.hardwareFault || invalid ? '⛔' : '⚠'); setText('alertText', parts.join(' '));
+        }
+
+        function renderConfigForms() {
+            ['general', 'voltage', 'current', 'temperature', 'balancing', 'reporting', 'curves'].forEach(group => byId(`config-${group}`).replaceChildren());
+            configDefinitions.forEach(definition => {
+                const container = byId(`config-${definition.group}`); if (!container) return; const field = document.createElement('div'); field.className = 'form-field'; const inputId = `cfg-${definition.path}`; const input = definition.type === 'array' ? document.createElement('textarea') : document.createElement('input'); input.id = inputId; input.dataset.configPath = definition.path; input.dataset.scope = definition.scope || 'config'; input.className = 'config-input'; if (definition.type !== 'array') input.type = definition.type === 'checkbox' ? 'checkbox' : 'number'; if (definition.min !== undefined) input.min = definition.min; if (definition.max !== undefined) input.max = definition.max; if (definition.step !== undefined) input.step = definition.step; input.addEventListener('input', onConfigInputChanged);
+                const label = document.createElement('label'); label.htmlFor = inputId; const labelText = document.createElement('span'); labelText.dataset.configLabel = definition.path; labelText.textContent = configLabel(definition); const pathCode = document.createElement('code'); pathCode.textContent = definition.path; label.append(labelText, pathCode); field.appendChild(label);
+                if (definition.type === 'checkbox') { const wrap = document.createElement('div'); wrap.className = 'check-row'; wrap.appendChild(input); const checkboxText = document.createElement('span'); checkboxText.dataset.configCheckboxText = 'true'; checkboxText.textContent = t('liveReportCheckbox'); wrap.appendChild(checkboxText); field.appendChild(wrap); }
+                else if (definition.type === 'array') field.appendChild(input);
+                else { const wrap = document.createElement('div'); wrap.className = 'input-wrap'; wrap.appendChild(input); const unit = document.createElement('span'); unit.className = 'input-unit'; unit.textContent = definition.unit || ''; wrap.appendChild(unit); field.appendChild(wrap); }
+                if (configHelp(definition)) { const help = document.createElement('div'); help.className = 'field-help'; help.dataset.configHelp = definition.path; help.textContent = configHelp(definition); field.appendChild(help); }
+                container.appendChild(field);
+            });
+            updateConfigFormValues(true);
+            updateConfigText();
+        }
+
+        function updateInputFormValues() {
+            if (appState.input.wChgEnable !== undefined) byId('inputChgEnable').checked = Boolean(appState.input.wChgEnable);
+            if (appState.input.wDisEnable !== undefined) byId('inputDisEnable').checked = Boolean(appState.input.wDisEnable);
+        }
+        function updateConfigFormValues(force = false) {
+            configDefinitions.forEach(definition => {
+                const input = byId(`cfg-${definition.path}`); const source = definition.scope === 'reporting' ? appState.reporting : appState.config;
+                if (!input) return;
+                if (!force && input.classList.contains('dirty')) return;
+                if (force) input.classList.remove('dirty');
+                if (source[definition.path] === undefined || source[definition.path] === null) return;
+                const value = source[definition.path]; if (definition.type === 'checkbox') input.checked = Boolean(value); else if (definition.type === 'array') input.value = Array.isArray(value) ? value.join(', ') : ''; else input.value = value; input.dataset.original = JSON.stringify(value);
+            });
+            if (appState.config.sNominalCapacity_Ah !== undefined && !byId('presetCapacity').matches(':focus')) byId('presetCapacity').value = appState.config.sNominalCapacity_Ah;
+            updateInputFormValues(); appState.configDirty = document.querySelectorAll('.config-input.dirty').length > 0; updateApplyButton();
+        }
+        function onConfigInputChanged(event) { event.target.classList.add('dirty'); appState.configDirty = true; updateApplyButton(); }
+        function updateApplyButton() { byId('btnApplyConfig').disabled = !appState.connected || !appState.configLoaded || !appState.configDirty; }
+        function setConfigStatus(message, kind = '') { const status = byId('configStatus'); status.className = `config-status${kind ? ` ${kind}` : ''}`; status.textContent = message; }
+        function shellEscapeThingSet(command) { return appState.transport === 'USB COM' ? command.replaceAll('"', '\\"') : command; }
+
+        function enqueueRequest(request, payload = undefined, label = request) {
+            if (!appState.connected) return Promise.resolve({ ok: false, error: t('disconnectedError') });
+            const body = payload === undefined ? '' : ` ${JSON.stringify(payload)}`; const command = `${request}${body}`;
+            return new Promise(resolve => { appState.requestQueue.push({ request, command, label, resolve, timer: null }); pumpRequestQueue(); });
+        }
+        function pumpRequestQueue() {
+            if (!appState.connected || appState.activeRequest || !appState.requestQueue.length) return; const item = appState.requestQueue.shift(); appState.activeRequest = item; const wire = appState.transport === 'USB COM' ? `thingset ${shellEscapeThingSet(item.command)}\r\n` : `${item.command}\n`; logLine(`>>> ${wire.replace(/\r?\n$/, '')}`, 'send');
+            sendRawTransport(wire).then(() => { item.timer = setTimeout(() => finishActiveRequest({ ok: false, timeout: true, error: `Timeout: ${item.label}` }), REQUEST_TIMEOUT_MS); }).catch(error => finishActiveRequest({ ok: false, error: error.message || String(error) }));
+        }
+        function finishActiveRequest(result) { const item = appState.activeRequest; if (!item) return; if (item.timer) clearTimeout(item.timer); appState.activeRequest = null; item.resolve(result); if (!result.ok && !result.timeout) logLine(t('sendFailed', { label: item.label, error: result.error || 'unknown error' }), 'error'); if (result.timeout) logLine(t('timeout', { label: item.label }), 'error'); setTimeout(pumpRequestQueue, 0); }
+
+        async function queryInitialData() {
+            stopPolling(); appState.hardwareFault = false; appState.hardwareMessages = []; setConfigStatus(t('configReading'));
+            for (const request of ['?', '?Device', '?Meas', '?Conf', '?Input', '?_Reporting/mLive']) { const result = await enqueueRequest(request, undefined, request); if (!result.ok) logLine(t('readFailed', { request }), 'error'); }
+            setConfigStatus(appState.configLoaded ? t('configReadOk') : t('configReadFail'), appState.configLoaded ? 'good' : 'bad'); startPolling(); updateAlertBanner();
+        }
+        function startPolling() { stopPolling(); if (!appState.connected) return; appState.pollTimer = setInterval(() => { if (appState.connected && !appState.activeRequest && !appState.requestQueue.some(item => item.request === '?Meas')) enqueueRequest('?Meas', undefined, 'poll ?Meas'); }, POLL_INTERVAL_MS); if (!appState.activeRequest && !appState.requestQueue.length) enqueueRequest('?Meas', undefined, 'poll ?Meas'); }
+        function stopPolling() { if (appState.pollTimer) clearInterval(appState.pollTimer); appState.pollTimer = null; }
+
+        async function refreshConfiguration(force = false) {
+            if (!appState.connected) { setConfigStatus(t('disconnectedError'), 'bad'); return false; } if (!force && appState.configDirty && !window.confirm(t('confirmRefresh'))) return false; setConfigStatus(t('configRefresh'));
+            const results = await Promise.all([enqueueRequest('?Conf', undefined, '?Conf'), enqueueRequest('?Input', undefined, '?Input'), enqueueRequest('?_Reporting/mLive', undefined, '?_Reporting/mLive')]); const ok = results.every(result => result.ok); setConfigStatus(ok ? t('configSynced') : t('configPartial'), ok ? 'good' : 'bad'); return ok;
+        }
+
+        function collectConfigValues() {
+            const values = {}; const errors = [];
+            configDefinitions.filter(definition => definition.scope !== 'reporting').forEach(definition => {
+                const input = byId(`cfg-${definition.path}`); if (!input) return;
+                if (definition.type === 'array') {
+                    const items = input.value.split(/[\s,;]+/).map(Number).filter(value => Number.isFinite(value));
+                    if (items.length !== 21) errors.push(t('validation21', { path: definition.path }));
+                    if (items.some(value => value < definition.min || value > definition.max)) errors.push(t('validationRange', { path: definition.path }));
+                    values[definition.path] = items; return;
+                }
+                if (!input.value.trim()) { errors.push(t('validationEmpty', { path: definition.path })); return; }
+                const value = Number(input.value); if (!Number.isFinite(value)) { errors.push(t('validationNumber', { path: definition.path })); return; }
+                if ((definition.min !== undefined && value < definition.min) || (definition.max !== undefined && value > definition.max)) errors.push(t('validationBounds', { path: definition.path, min: definition.min, max: definition.max }));
+                if (definition.integer && !Number.isInteger(value)) errors.push(t('validationInteger', { path: definition.path })); values[definition.path] = value;
+            });
+            const ov = values.sCellOvervoltage_V; const ovReset = values.sCellOvervoltageReset_V; const uv = values.sCellUndervoltage_V; const uvReset = values.sCellUndervoltageReset_V;
+            if (ov !== undefined && ovReset !== undefined && ovReset >= ov) errors.push(t('validationOvp'));
+            if (uv !== undefined && uvReset !== undefined && uvReset <= uv) errors.push(t('validationUvp'));
+            if (values.sBalMinVoltage_V !== undefined && ovReset !== undefined && values.sBalMinVoltage_V > ovReset) errors.push(t('validationBalance'));
+            if (values.sDisMinTemp_degC !== undefined && values.sDisMaxTemp_degC !== undefined && values.sDisMinTemp_degC >= values.sDisMaxTemp_degC) errors.push(t('validationDisTemp'));
+            if (values.sChgMinTemp_degC !== undefined && values.sChgMaxTemp_degC !== undefined && values.sChgMinTemp_degC >= values.sChgMaxTemp_degC) errors.push(t('validationChgTemp'));
+            if (values.sOcvPoints_V && !isNonIncreasing(values.sOcvPoints_V)) errors.push(t('validationOcv'));
+            if (values.sSocPoints_pct && !isNonIncreasing(values.sSocPoints_pct)) errors.push(t('validationSoc'));
+            const reportingPeriodInput = byId('cfg-sPeriod_ms'); const reportingPeriod = reportingPeriodInput && reportingPeriodInput.value.trim() ? Number(reportingPeriodInput.value) : NaN; const reportingNeedsValidation = reportingPeriodInput && (reportingPeriodInput.classList.contains('dirty') || appState.reporting.sPeriod_ms !== undefined);
+            if (reportingNeedsValidation && (!Number.isFinite(reportingPeriod) || reportingPeriod < 100 || reportingPeriod > 60000 || !Number.isInteger(reportingPeriod))) errors.push(t('validationPeriod'));
+            return { values, errors };
+        }
+        function isNonIncreasing(values) { return values.every((value, index) => index === 0 || value <= values[index - 1]); }
+        function valuesMatch(expected, actual) {
+            if (Array.isArray(expected) || Array.isArray(actual)) {
+                if (!Array.isArray(expected) || !Array.isArray(actual) || expected.length !== actual.length) return false;
+                return expected.every((value, index) => valuesMatch(value, actual[index]));
+            }
+            const expectedNumber = finiteNumber(expected); const actualNumber = finiteNumber(actual);
+            if (expectedNumber !== null || actualNumber !== null) return expectedNumber !== null && actualNumber !== null && Math.abs(expectedNumber - actualNumber) <= Math.max(0.00001, Math.abs(expectedNumber) * 0.0001);
+            return jsonEqual(expected, actual);
+        }
+        function readBackMatches(changes) {
+            return changes.every(item => { const source = item.definition.scope === 'reporting' ? appState.reporting : appState.config; return valuesMatch(item.value, source[item.definition.path]); });
+        }
+
+        async function applyConfigChanges() {
+            if (!appState.connected || !appState.configLoaded) { setConfigStatus(t('noConfigBase'), 'bad'); return; }
+            const collected = collectConfigValues(); if (collected.errors.length) { setConfigStatus(collected.errors[0], 'bad'); logLine(t('configBlocked', { message: collected.errors.join(' ') }), 'error'); return; }
+            const changed = configDefinitions.filter(definition => definition.scope !== 'reporting').map(definition => ({ definition, value: collected.values[definition.path] })).filter(item => !valuesMatch(item.value, appState.config[item.definition.path]));
+            const reportingChanged = configDefinitions.filter(definition => definition.scope === 'reporting').map(definition => { const input = byId(`cfg-${definition.path}`); const value = definition.type === 'checkbox' ? input.checked : Number(input.value); return { definition, value }; }).filter(item => !valuesMatch(item.value, appState.reporting[item.definition.path])); const allChanged = [...changed, ...reportingChanged];
+            if (!allChanged.length) { setConfigStatus(t('noChanges'), 'good'); appState.configDirty = false; updateApplyButton(); return; }
+            const summary = allChanged.map(item => `${item.definition.path}=${JSON.stringify(item.value)}`).join('\n'); if (!window.confirm(t('confirmConfig', { count: allChanged.length, summary }))) return;
+            for (const item of changed) { setConfigStatus(t('writing', { path: item.definition.path })); const result = await enqueueRequest('=Conf', { [item.definition.path]: item.value }, `=Conf ${item.definition.path}`); if (!result.ok) { setConfigStatus(t('writeFailed', { path: item.definition.path }), 'bad'); return; } }
+            for (const item of reportingChanged) { setConfigStatus(t('writingReporting', { path: item.definition.path })); const result = await enqueueRequest('=_Reporting/mLive', { [item.definition.path]: item.value }, `=_Reporting/mLive ${item.definition.path}`); if (!result.ok) { setConfigStatus(t('reportingFailed'), 'bad'); return; } }
+            const refreshed = await refreshConfiguration(true); if (!refreshed || !readBackMatches(allChanged)) { setConfigStatus(t('writeMismatch'), 'bad'); logLine(t('writeMismatch'), 'error'); return; }
+            setConfigStatus(t('writeConfirmed'), 'good');
+        }
+
+        async function applyInputControls() {
+            if (!appState.connected) { setConfigStatus(t('disconnectedError'), 'bad'); return; } const values = { wChgEnable: byId('inputChgEnable').checked, wDisEnable: byId('inputDisEnable').checked }; if (!window.confirm(t('confirmInput', { chg: values.wChgEnable ? 'ON' : 'OFF', dis: values.wDisEnable ? 'ON' : 'OFF' }))) return; const result = await enqueueRequest('=Input', values, '=Input'); setConfigStatus(result.ok ? t('inputWritten') : t('inputWriteFailed'), result.ok ? 'good' : 'bad'); await enqueueRequest('?Input', undefined, '?Input');
+        }
+        async function runLfpPreset() {
+            if (!appState.connected) { setConfigStatus(t('disconnectedError'), 'bad'); return; } const capacity = Number(byId('presetCapacity').value); if (!Number.isFinite(capacity) || capacity < 0.1 || capacity > 1000) { setConfigStatus(t('presetCapacityError'), 'bad'); return; } if (!window.confirm(t('confirmPreset', { capacity: capacity.toFixed(1) }))) return; const result = await enqueueRequest('!Conf/xPresetLFP', [capacity], '!Conf/xPresetLFP'); setConfigStatus(result.ok ? t('presetSuccess') : t('presetFailed'), result.ok ? 'good' : 'bad'); if (result.ok) await refreshConfiguration(true);
+        }
+
+        async function sendCustomCommand() {
+            const input = byId('commandInput'); const text = input.value.trim(); if (!text) return; input.value = ''; if (!appState.connected) { logLine(t('commandNotConnected'), 'error'); return; } let command = text; if (appState.transport === 'USB COM' && !command.startsWith('thingset ') && /^[?=+\-!@#]/.test(command)) command = `thingset ${shellEscapeThingSet(command)}`; else if (appState.transport === 'USB COM' && command.startsWith('thingset ')) command = `thingset ${shellEscapeThingSet(command.substring(9))}`; logLine(`>>> ${command}`, 'send'); try { await sendRawTransport(`${command}\r\n`); } catch (error) { logLine(t('sendError', { message: error.message || error }), 'error'); }
+        }
+
+        async function disconnectDevice(silent = false) {
+            appState.intentionalDisconnect = true; stopPolling(); appState.requestQueue.splice(0).forEach(item => item.resolve({ ok: false, error: 'Disconnected' })); if (appState.activeRequest) finishActiveRequest({ ok: false, error: 'Disconnected' }); if (appState.serialReader) { try { await appState.serialReader.cancel(); } catch (_) { } } if (appState.readLoopPromise) { try { await appState.readLoopPromise; } catch (_) { } } if (appState.serialWriter) { try { appState.serialWriter.releaseLock(); } catch (_) { } appState.serialWriter = null; } if (appState.port) { try { await appState.port.close(); } catch (_) { } appState.port = null; } if (appState.bleDevice && appState.bleDevice.gatt && appState.bleDevice.gatt.connected) { try { appState.bleDevice.gatt.disconnect(); } catch (_) { } } appState.bleDevice = null; appState.bleDownlink = null; appState.bleUplink = null; appState.readLoopPromise = null; appState.rxBuffer = ''; appState.bleBuffer = ''; updateConnectionUI(false); if (!silent) logLine(t('disconnected')); 
+        }
+        window.addEventListener('DOMContentLoaded', detectEnvironment);
+    </script>
+</body>
+</html>
